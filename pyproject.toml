@@ -1,0 +1,10 @@
+[project]
+name = "judol-detection"
+version = "0.1.0"
+description = "Monorepo skripsi untuk deteksi promosi judi online berbahasa Indonesia yang robust terhadap manipulasi Unicode."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+judol-detection = "main:main"

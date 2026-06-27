@@ -1,0 +1,46 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Local data and generated artifacts
+data/raw/*
+data/interim/*
+data/processed/*
+data/adversarial/*
+data/annotation/*
+experiments/runs/*
+models/checkpoints/*
+models/final/*
+
+# Keep directory placeholders
+!.gitkeep
+
+# Notebook runtime artifacts
+.ipynb_checkpoints/
+
+# Test and tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Browser extension build output
+apps/browser-extension/dist/
+apps/browser-extension/build/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
