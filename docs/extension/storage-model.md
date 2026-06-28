@@ -31,6 +31,8 @@ Prefer these object-based keys over many tiny setting keys. Popup and options pa
 
 The canonical frontend type implementation lives in `apps/browser-extension/src/shared/storage.ts`. The storage helper implementation lives in `apps/browser-extension/src/storage/` and is exported through `@/storage`. Keep storage helpers and React/background usage aligned with those exported types.
 
+WXT manifest must include the `storage` permission before any `wxt/utils/storage` helper is used in popup, background, options, logs, or manual analysis pages.
+
 ## settings:extension
 
 Used by popup, options, background, and content scripts.

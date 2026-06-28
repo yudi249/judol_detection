@@ -101,10 +101,12 @@ Goal: JudolLens has a useful control center.
 - add protection, auto-blur, and Unicode-highlight toggles
 - show scanned, detected, Unicode suspicious, and last scan counters
 - show recent detection summary
-- link to Logs and Options
+- show Logs and Options navigation placeholders until the real pages are built in Milestone 11
 - support active, detected, disabled, unsupported, and error states
 
 Done when popup reflects storage-backed state.
+
+EXT-005 renders Logs and Options as visible disabled placeholders. The actual Logs and Options pages are built in Milestone 11.
 
 ## Milestone 6: Content Script Scanner
 
@@ -205,6 +207,7 @@ FastAPI integration starts only after frontend MVP behavior is stable, unless ex
 Each milestone should include focused verification:
 
 - popup loads and reflects storage
+- popup e2e runs through Playwright with the built extension loaded
 - Tailwind and shadcn components compile in extension-owned React screens
 - mock predictor returns deterministic results
 - scanner avoids unsafe DOM nodes

@@ -36,10 +36,16 @@ models/final/*
 .mypy_cache/
 htmlcov/
 .coverage
+.playwright-mcp/
+playwright-report/
+test-results/
+judollens-popup-*.png
 
 # Browser extension build output
 apps/browser-extension/dist/
 apps/browser-extension/build/
+apps/browser-extension/playwright-report/
+apps/browser-extension/test-results/
 
 # Local AI assistant/runtime files
 .agents/
