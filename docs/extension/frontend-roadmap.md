@@ -8,6 +8,7 @@ Build the extension frontend end to end:
 
 ```text
 WXT + React + TypeScript
+-> Tailwind CSS + shadcn/ui foundation
 -> mock predictor
 -> storage
 -> popup
@@ -29,6 +30,8 @@ Delay these until the frontend MVP is stable:
 
 The mock predictor must remain contract-compatible so the frontend can switch to FastAPI later without UI rewrites.
 
+The UI foundation should use Tailwind CSS, shadcn/ui, and lucide-react for extension-owned React screens. Do not use shadcn components or Tailwind preflight for third-party page DOM overlays.
+
 ## Milestone 0: Scaffold WXT + React
 
 Goal: the extension project exists and can run in development mode.
@@ -40,7 +43,20 @@ Goal: the extension project exists and can run in development mode.
 
 Done when the popup shell loads in a browser.
 
-## Milestone 1: Shared Frontend Types
+## Milestone 1: UI Foundation
+
+Goal: Tailwind CSS and selected shadcn/ui components are ready for JudolLens extension-owned screens.
+
+- install and configure Tailwind CSS for WXT + React
+- initialize shadcn/ui with local component output
+- install `lucide-react` for icons
+- define JudolLens theme tokens from `docs/extension/ui-theme.md`
+- add only the first component set needed for MVP UI: Button, Badge, Switch, Input, Textarea, Select, Slider, Table, Tabs, Tooltip, and Separator
+- keep content-script page overlays on lightweight scoped CSS, not shadcn
+
+Done when Tailwind classes work in a React extension screen, at least one shadcn/ui component imports successfully, and `pnpm compile` plus `pnpm build` pass.
+
+## Milestone 2: Shared Frontend Types
 
 Goal: all extension parts share the same contracts.
 
@@ -52,7 +68,7 @@ Goal: all extension parts share the same contracts.
 
 Done when popup, background, content, storage, and mock predictor can import shared types.
 
-## Milestone 2: Mock Predictor
+## Milestone 3: Mock Predictor
 
 Goal: predictions work without backend services.
 
@@ -65,7 +81,7 @@ Goal: predictions work without backend services.
 
 Done when `bοnus slοt gacor` returns judol with Unicode evidence.
 
-## Milestone 3: Storage Layer
+## Milestone 4: Storage Layer
 
 Goal: extension state can be read and updated consistently.
 
@@ -77,7 +93,7 @@ Goal: extension state can be read and updated consistently.
 
 Done when popup can read default settings and stats from storage.
 
-## Milestone 4: Popup MVP
+## Milestone 5: Popup MVP
 
 Goal: JudolLens has a useful control center.
 
@@ -90,7 +106,7 @@ Goal: JudolLens has a useful control center.
 
 Done when popup reflects storage-backed state.
 
-## Milestone 5: Content Script Scanner
+## Milestone 6: Content Script Scanner
 
 Goal: the extension can collect visible text candidates from pages.
 
@@ -103,7 +119,7 @@ Goal: the extension can collect visible text candidates from pages.
 
 Done when the content script can scan the simulation page without changing it.
 
-## Milestone 6: Background Coordinator
+## Milestone 7: Background Coordinator
 
 Goal: background coordinates prediction and state updates.
 
@@ -116,7 +132,7 @@ Goal: background coordinates prediction and state updates.
 
 Done when scanning produces popup counters and recent logs.
 
-## Milestone 7: On-Page Overlay
+## Milestone 8: On-Page Overlay
 
 Goal: detections are visible on the target page.
 
@@ -128,7 +144,7 @@ Goal: detections are visible on the target page.
 
 Done when detected judol text on the simulation page is blurred or warned and Unicode spans are highlighted.
 
-## Milestone 8: MutationObserver
+## Milestone 9: MutationObserver
 
 Goal: dynamic content is handled.
 
@@ -139,7 +155,7 @@ Goal: dynamic content is handled.
 
 Done when a dynamically inserted judol post is detected after page load.
 
-## Milestone 9: Simulation Page
+## Milestone 10: Simulation Page
 
 Goal: thesis evaluation has a repeatable local demo target.
 
@@ -152,7 +168,7 @@ Goal: thesis evaluation has a repeatable local demo target.
 
 Done when the full MVP 1 flow works from simulation page to popup/log evidence.
 
-## Milestone 10: Options + Logs
+## Milestone 11: Options + Logs
 
 Goal: MVP 2 adds useful control and research evidence review.
 
@@ -163,7 +179,7 @@ Goal: MVP 2 adds useful control and research evidence review.
 
 Done when stored detections can be reviewed and filtered.
 
-## Milestone 11: Manual Analysis
+## Milestone 12: Manual Analysis
 
 Goal: selected or pasted text can be inspected directly.
 
@@ -178,9 +194,9 @@ Done when selected page text can be analyzed and saved as evidence.
 
 ## MVP Boundaries
 
-MVP 1 is complete after Milestone 9.
+MVP 1 is complete after Milestone 10.
 
-MVP 2 is complete after Milestone 11.
+MVP 2 is complete after Milestone 12.
 
 FastAPI integration starts only after frontend MVP behavior is stable, unless explicitly requested.
 
@@ -189,6 +205,7 @@ FastAPI integration starts only after frontend MVP behavior is stable, unless ex
 Each milestone should include focused verification:
 
 - popup loads and reflects storage
+- Tailwind and shadcn components compile in extension-owned React screens
 - mock predictor returns deterministic results
 - scanner avoids unsafe DOM nodes
 - overlay does not break simulation layout

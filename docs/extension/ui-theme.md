@@ -14,6 +14,20 @@ The popup should feel protective and compact. Options, logs, manual analysis, an
 
 Avoid cyberpunk styling, heavy purple gradients, decorative blobs, mascots, and noisy dashboard chrome.
 
+## UI Stack
+
+Use this frontend UI stack for extension-owned React screens:
+
+```text
+Tailwind CSS
+shadcn/ui
+lucide-react
+```
+
+Use shadcn/ui selectively for reusable controls such as Button, Badge, Switch, Input, Textarea, Select, Slider, Table, Tabs, Tooltip, and Separator. Do not install or commit unused shadcn components.
+
+Do not use shadcn/ui for third-party page DOM overlays in content scripts. On-page overlays should remain lightweight scoped CSS using `judollens-*` classes so Tailwind preflight or component styles do not leak into target websites.
+
 ## Screen Theme Split
 
 Use a split theme:
@@ -227,6 +241,8 @@ Use:
 - sliders or numeric inputs for thresholds
 - tables for logs and Unicode evidence
 - badges for risk and model state
+
+Prefer lucide-react icons for extension-owned React UI actions when an appropriate icon exists.
 
 Avoid:
 
