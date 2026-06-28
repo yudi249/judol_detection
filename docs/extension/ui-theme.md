@@ -28,6 +28,8 @@ Use shadcn/ui selectively for reusable controls such as Button, Badge, Switch, I
 
 Do not use shadcn/ui for third-party page DOM overlays in content scripts. On-page overlays should remain lightweight scoped CSS using `judollens-*` classes so Tailwind preflight or component styles do not leak into target websites.
 
+WXT is configured as a manual shadcn/ui project. Keep `components.json`, `src/styles/global.css`, `src/lib/utils.ts`, and the Vite aliases in `wxt.config.ts` aligned when adding components. Use `src/components/ui/` as the local shadcn component output.
+
 ## Screen Theme Split
 
 Use a split theme:
@@ -265,6 +267,7 @@ Avoid:
 When implementing in React:
 
 - define CSS variables for all theme tokens
+- keep Tailwind CSS v4 configured through `@tailwindcss/vite` in WXT
 - keep popup CSS separate from full-page screen layout CSS
 - use the same risk badge component across popup, logs, and manual analysis
 - use the same Unicode evidence component in logs and manual analysis
