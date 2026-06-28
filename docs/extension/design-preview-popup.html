@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>JudolLens Popup Preview</title>
+    <style>
+      :root {
+        --graphite-950: #0b1117;
+        --graphite-900: #111923;
+        --graphite-800: #1b2733;
+        --graphite-700: #2b3a48;
+        --slate-300: #b7c3cf;
+        --slate-100: #eef3f7;
+        --cyan: #16c7d8;
+        --blue: #2f80ed;
+        --green: #22c55e;
+        --amber: #f59e0b;
+        --red: #ef4444;
+        --orange: #f97316;
+        --muted: #7d8b99;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+          radial-gradient(circle at top left, rgba(22, 199, 216, 0.13), transparent 34rem),
+          #071018;
+        background-size: 28px 28px, 28px 28px, auto, auto;
+        color: var(--slate-100);
+        font-family: "Segoe UI", system-ui, sans-serif;
+      }
+
+      .stage {
+        display: grid;
+        gap: 18px;
+        justify-items: center;
+      }
+
+      .caption {
+        max-width: 520px;
+        color: var(--slate-300);
+        font-size: 14px;
+        line-height: 1.5;
+        text-align: center;
+      }
+
+      .popup {
+        width: 380px;
+        border: 1px solid rgba(183, 195, 207, 0.18);
+        border-radius: 12px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 22%),
+          var(--graphite-900);
+        box-shadow: 0 22px 70px rgba(0, 0, 0, 0.42);
+        overflow: hidden;
+      }
+
+      .topbar {
+        padding: 16px;
+        border-bottom: 1px solid rgba(183, 195, 207, 0.12);
+      }
+
+      .brand-row,
+      .meta-row,
+      .section-title,
+      .recent-head,
+      .footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        letter-spacing: 0;
+      }
+
+      .lens-mark {
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(22, 199, 216, 0.45);
+        border-radius: 8px;
+        background: rgba(22, 199, 216, 0.1);
+        color: var(--cyan);
+        font-size: 17px;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 9px;
+        border-radius: 999px;
+        background: rgba(34, 197, 94, 0.11);
+        color: #98f4b9;
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .status::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--green);
+        box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.14);
+      }
+
+      .meta-row {
+        margin-top: 12px;
+        color: var(--slate-300);
+        font-size: 12px;
+      }
+
+      .mode {
+        color: var(--cyan);
+      }
+
+      .content {
+        padding: 14px 16px 16px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .section {
+        display: grid;
+        gap: 10px;
+      }
+
+      .section-title {
+        color: #dbe6ee;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .toggle-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .toggle-row {
+        min-height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 9px 10px;
+        border: 1px solid rgba(183, 195, 207, 0.12);
+        border-radius: 8px;
+        background: rgba(11, 17, 23, 0.44);
+        color: #dbe6ee;
+        font-size: 13px;
+      }
+
+      .switch {
+        width: 38px;
+        height: 22px;
+        padding: 3px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--blue), var(--cyan));
+      }
+
+      .switch::after {
+        content: "";
+        display: block;
+        width: 16px;
+        height: 16px;
+        margin-left: auto;
+        border-radius: 999px;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      }
+
+      .evidence-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+      }
+
+      .metric {
+        min-height: 66px;
+        padding: 10px 8px;
+        border: 1px solid rgba(183, 195, 207, 0.12);
+        border-radius: 8px;
+        background: rgba(11, 17, 23, 0.46);
+      }
+
+      .value {
+        font-size: 21px;
+        font-weight: 750;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .label {
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .unicode .value {
+        color: var(--amber);
+      }
+
+      .detected .value {
+        color: #ff8b8b;
+      }
+
+      .scan .value {
+        color: var(--cyan);
+      }
+
+      .recent-card {
+        padding: 12px;
+        border: 1px solid rgba(239, 68, 68, 0.28);
+        border-radius: 8px;
+        background:
+          linear-gradient(90deg, rgba(239, 68, 68, 0.12), transparent 55%),
+          rgba(11, 17, 23, 0.52);
+      }
+
+      .risk {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #ffd1d1;
+        font-size: 12px;
+        font-weight: 750;
+      }
+
+      .risk-badge {
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: rgba(239, 68, 68, 0.14);
+        color: #ff9c9c;
+      }
+
+      .confidence {
+        color: var(--slate-300);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .snippet {
+        margin: 10px 0 9px;
+        color: #eef6fb;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .term-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .tag {
+        padding: 4px 7px;
+        border-radius: 999px;
+        background: rgba(47, 128, 237, 0.13);
+        color: #b7d6ff;
+        font-size: 11px;
+      }
+
+      .tag.unicode {
+        background: rgba(245, 158, 11, 0.13);
+        color: #ffd18a;
+      }
+
+      .footer {
+        padding-top: 2px;
+      }
+
+      .button {
+        flex: 1;
+        min-height: 36px;
+        border: 1px solid rgba(183, 195, 207, 0.16);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #e9f4fb;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .button.primary {
+        border-color: rgba(22, 199, 216, 0.45);
+        background: linear-gradient(135deg, rgba(47, 128, 237, 0.28), rgba(22, 199, 216, 0.18));
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stage">
+      <section class="popup" aria-label="JudolLens extension popup preview">
+        <header class="topbar">
+          <div class="brand-row">
+            <div class="brand">
+              <div class="lens-mark">J</div>
+              <span>JudolLens</span>
+            </div>
+            <div class="status">Aktif</div>
+          </div>
+          <div class="meta-row">
+            <span>YouTube comment thread</span>
+            <span class="mode">Mock mode</span>
+          </div>
+        </header>
+
+        <div class="content">
+          <section class="section">
+            <div class="section-title">
+              <span>Protection</span>
+            </div>
+            <div class="toggle-list">
+              <div class="toggle-row">
+                <span>Proteksi halaman</span>
+                <span class="switch" aria-hidden="true"></span>
+              </div>
+              <div class="toggle-row">
+                <span>Auto blur</span>
+                <span class="switch" aria-hidden="true"></span>
+              </div>
+              <div class="toggle-row">
+                <span>Highlight Unicode</span>
+                <span class="switch" aria-hidden="true"></span>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="section-title">
+              <span>Session Evidence</span>
+            </div>
+            <div class="evidence-grid">
+              <div class="metric scan">
+                <div class="value">128</div>
+                <div class="label">Scanned</div>
+              </div>
+              <div class="metric detected">
+                <div class="value">7</div>
+                <div class="label">Detected</div>
+              </div>
+              <div class="metric unicode">
+                <div class="value">3</div>
+                <div class="label">Unicode</div>
+              </div>
+              <div class="metric">
+                <div class="value">18</div>
+                <div class="label">ms</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="recent-head section-title">
+              <span>Recent Detection</span>
+              <span class="confidence">1 of 7</span>
+            </div>
+            <article class="recent-card">
+              <div class="recent-head">
+                <span class="risk">
+                  <span class="risk-badge">HIGH</span>
+                  <span class="confidence">0.94</span>
+                </span>
+                <span class="tag unicode">2 Unicode spans</span>
+              </div>
+              <p class="snippet">"bοnus slοt gacor malam ini, deposit 10k langsung maxwin..."</p>
+              <div class="term-row">
+                <span class="tag">bonus</span>
+                <span class="tag">slot</span>
+                <span class="tag">gacor</span>
+                <span class="tag unicode">homoglyph</span>
+              </div>
+            </article>
+          </section>
+
+          <footer class="footer">
+            <button class="button primary">Logs</button>
+            <button class="button">Options</button>
+          </footer>
+        </div>
+      </section>
+      <p class="caption">
+        Preview UI popup JudolLens: dark security console untuk kontrol cepat, dengan evidence counters dan Unicode signal yang tetap terlihat untuk kebutuhan riset.
+      </p>
+    </main>
+  </body>
+</html>

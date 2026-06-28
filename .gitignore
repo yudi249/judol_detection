@@ -41,6 +41,28 @@ htmlcov/
 apps/browser-extension/dist/
 apps/browser-extension/build/
 
+# Local AI assistant/runtime files
+.agents/
+.codex/
+.claude/
+.cursor/
+.continue/
+.aider*
+.roo/
+.windsurf/
+
+# Local AI agent harness files
+AGENTS.md
+CLAUDE.md
+claude-progress.md
+feature_list.json
+session-handoff.md
+clean-state-checklist.md
+evaluator-rubric.md
+quality-document.md
+init.ps1
+init.sh
+
 # OS/editor noise
 .DS_Store
 Thumbs.db
