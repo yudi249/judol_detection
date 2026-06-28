@@ -10,7 +10,9 @@
       "@/hooks/*": ["./src/hooks/*"],
       "@/lib/*": ["./src/lib/*"],
       "@/shared": ["./src/shared/index.ts"],
-      "@/shared/*": ["./src/shared/*"]
+      "@/shared/*": ["./src/shared/*"],
+      "@/storage": ["./src/storage/index.ts"],
+      "@/storage/*": ["./src/storage/*"]
     }
   }
 }

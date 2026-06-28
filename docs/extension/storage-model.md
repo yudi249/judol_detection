@@ -29,7 +29,7 @@ cache:predictions
 
 Prefer these object-based keys over many tiny setting keys. Popup and options pages usually need the full settings snapshot, and object keys make default resets, migrations, debugging, and consistent updates simpler.
 
-The canonical frontend type implementation lives in `apps/browser-extension/src/shared/storage.ts`. Keep storage helpers and React/background usage aligned with those exported types.
+The canonical frontend type implementation lives in `apps/browser-extension/src/shared/storage.ts`. The storage helper implementation lives in `apps/browser-extension/src/storage/` and is exported through `@/storage`. Keep storage helpers and React/background usage aligned with those exported types.
 
 ## settings:extension
 
@@ -151,6 +151,7 @@ export type DetectionLog = {
 Rules:
 
 - Keep at most `settings.maxLogs` entries.
+- Store logs newest-first so popup and log review screens can read recent detections without extra sorting.
 - Store short snippets only, around 160-240 characters.
 - Do not store full page text or full browsing history.
 - Omit `sourceUrl` when `settings.storeSourceUrl` is false.
