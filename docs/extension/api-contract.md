@@ -169,6 +169,8 @@ For text such as `ѕlοt gаcοr`, return spans with Unicode details:
 
 Use camelCase in extension TypeScript and map to snake_case only at API boundaries if needed.
 
+The canonical frontend implementation lives in `apps/browser-extension/src/shared/`. Keep `prediction.ts`, `messages.ts`, and storage log mappings aligned with this document when the mock predictor or FastAPI adapter changes.
+
 ```ts
 export type JudolLabel = "judol" | "non_judol"
 export type RiskLevel = "low" | "medium" | "high"

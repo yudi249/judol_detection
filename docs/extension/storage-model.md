@@ -29,6 +29,8 @@ cache:predictions
 
 Prefer these object-based keys over many tiny setting keys. Popup and options pages usually need the full settings snapshot, and object keys make default resets, migrations, debugging, and consistent updates simpler.
 
+The canonical frontend type implementation lives in `apps/browser-extension/src/shared/storage.ts`. Keep storage helpers and React/background usage aligned with those exported types.
+
 ## settings:extension
 
 Used by popup, options, background, and content scripts.
