@@ -192,8 +192,20 @@ function App() {
               <Separator className="bg-white/10" />
 
               <footer className="grid grid-cols-2 gap-2">
-                <PlaceholderButton icon={FileTextIcon} label="Logs" />
-                <PlaceholderButton icon={SettingsIcon} label="Options" />
+                <NavigationButton
+                  icon={FileTextIcon}
+                  label="Logs"
+                  onClick={() =>
+                    void browser.tabs.create({
+                      url: browser.runtime.getURL('/logs.html'),
+                    })
+                  }
+                />
+                <NavigationButton
+                  icon={SettingsIcon}
+                  label="Options"
+                  onClick={() => void browser.runtime.openOptionsPage()}
+                />
               </footer>
             </>
           ) : null}
@@ -338,28 +350,28 @@ function RecentDetection({
   );
 }
 
-function PlaceholderButton({
+function NavigationButton({
   icon: Icon,
   label,
+  onClick,
 }: {
   icon: typeof FileTextIcon;
   label: string;
+  onClick: () => void;
 }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span>
-          <Button
-            className="w-full border-white/15 bg-white/5 text-slate-300"
-            disabled
-            variant="outline"
-          >
-            <Icon aria-hidden="true" className="size-4" />
-            {label}
-          </Button>
-        </span>
+        <Button
+          className="w-full border-white/15 bg-white/5 text-slate-300"
+          onClick={onClick}
+          variant="outline"
+        >
+          <Icon aria-hidden="true" className="size-4" />
+          {label}
+        </Button>
       </TooltipTrigger>
-      <TooltipContent>{label} coming in EXT-011.</TooltipContent>
+      <TooltipContent>Open {label}</TooltipContent>
     </Tooltip>
   );
 }

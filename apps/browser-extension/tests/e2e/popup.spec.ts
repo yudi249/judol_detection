@@ -39,8 +39,22 @@ test.describe('JudolLens popup extension', () => {
       await expect(page.getByText('Storage-backed MVP')).toBeVisible();
       await expect(page.getByText('Session Evidence')).toBeVisible();
       await expect(page.getByText('Belum ada deteksi')).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Logs' })).toBeDisabled();
-      await expect(page.getByRole('button', { name: 'Options' })).toBeDisabled();
+      const logsButton = page.getByRole('button', { name: 'Logs' });
+      const optionsButton = page.getByRole('button', { name: 'Options' });
+      await expect(logsButton).toBeEnabled();
+      await expect(optionsButton).toBeEnabled();
+
+      const logsPagePromise = context.waitForEvent('page');
+      await logsButton.click();
+      const logsPage = await logsPagePromise;
+      await expect(logsPage).toHaveURL(/logs\.html$/);
+      await logsPage.close();
+
+      const optionsPagePromise = context.waitForEvent('page');
+      await optionsButton.click();
+      const optionsPage = await optionsPagePromise;
+      await expect(optionsPage).toHaveURL(/options\.html$/);
+      await optionsPage.close();
 
       const protection = page.getByRole('switch', { name: 'Proteksi halaman' });
       await expect(protection).toHaveAttribute('aria-checked', 'true');

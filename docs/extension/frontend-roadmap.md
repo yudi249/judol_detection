@@ -200,6 +200,14 @@ Goal: MVP 2 adds useful control and research evidence review.
 
 Done when stored detections can be reviewed and filtered.
 
+EXT-011 implements Options and Logs as real extension-owned React pages.
+Options opens in a tab through WXT `options.html`, loads state through the
+background coordinator, updates settings through `judollens:update-settings`,
+and keeps API health check as a disabled coming-soon item. Logs is an unlisted
+extension page at `logs.html` with summary cards, search/platform/risk/Unicode
+filters, a detection table, a detail panel, and clear-log behavior. Popup Logs
+and Options buttons now navigate to these pages instead of placeholders.
+
 ## Milestone 12: Manual Analysis
 
 Goal: selected or pasted text can be inspected directly.

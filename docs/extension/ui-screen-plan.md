@@ -100,6 +100,11 @@ Max logs: 200
 
 Use a full extension options page, not a cramped popup panel.
 
+EXT-011 implementation note: Options is a full-page WXT React screen opened in
+a browser tab. It reads state from `judollens:get-extension-state`, writes
+patches through `judollens:update-settings`, supports reset defaults, and keeps
+API health check disabled/coming-soon until the backend integration milestone.
+
 ## Log Review Page
 
 Purpose: provide evidence for debugging, demos, and thesis evaluation.
@@ -145,6 +150,12 @@ Privacy rules:
 - do not store full DOM or full browsing history
 - keep source URL optional
 - make logs clearable
+
+EXT-011 implementation note: Logs is a full-page WXT React screen at
+`logs.html`. It reads bounded detection logs through the background state
+message, supports snippet/term search plus platform, risk, and Unicode filters,
+shows newest evidence by default, and clears log history through
+`judollens:clear-detection-logs` without resetting session counters.
 
 ## Manual Analysis Page
 
@@ -291,5 +302,8 @@ MVP 2:
 5. Log review page
 6. Manual analysis page
 ```
+
+EXT-011 completes MVP 2 Options and Log Review. Manual Analysis remains the
+next MVP 2 screen.
 
 Do not polish secondary screens before the automatic protection flow is working end to end.
