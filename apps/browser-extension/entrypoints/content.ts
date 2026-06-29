@@ -1,4 +1,7 @@
-import { runJudolLensScanOnce } from '@/dom';
+import {
+  createDynamicContentObserver,
+  runJudolLensScanForRoots,
+} from '@/dom';
 
 const processedNodes = new WeakSet<Node>();
 
@@ -16,14 +19,14 @@ export default defineContentScript({
     'http://127.0.0.1:*/*',
   ],
   main(ctx) {
-    const runInitialScan = async () => {
+    const runScanForRoots = async (roots: ParentNode[]) => {
       if (ctx.isInvalid) {
         return;
       }
 
       try {
-        await runJudolLensScanOnce({
-          root: document.body,
+        await runJudolLensScanForRoots({
+          roots,
           url: location.href,
           pageTitle: document.title,
           processedNodes,
@@ -34,13 +37,32 @@ export default defineContentScript({
       }
     };
 
+    const startScanning = async () => {
+      await runScanForRoots([document.body]);
+
+      if (ctx.isInvalid) {
+        return;
+      }
+
+      const observer = createDynamicContentObserver({
+        root: document.body,
+        onScan: runScanForRoots,
+        setTimer: (callback, delay) => ctx.setTimeout(callback, delay),
+      });
+      observer.start();
+
+      ctx.addEventListener(window, 'pagehide', () => {
+        observer.stop();
+      });
+    };
+
     if (document.readyState === 'loading') {
       ctx.addEventListener(document, 'DOMContentLoaded', () => {
-        void runInitialScan();
+        void startScanning();
       });
       return;
     }
 
-    void runInitialScan();
+    void startScanning();
   },
 });

@@ -163,6 +163,12 @@ Goal: dynamic content is handled.
 
 Done when a dynamically inserted judol post is detected after page load.
 
+EXT-009 implements this as added-node-only dynamic scanning: content script starts
+a debounced `MutationObserver` after the initial scan, scans only newly added
+visible roots, reuses the same processed-node `WeakSet`, and ignores JudolLens
+overlay nodes. Product simulation remains Milestone 10; EXT-009 uses an e2e
+fixture only for verification.
+
 ## Milestone 10: Simulation Page
 
 Goal: thesis evaluation has a repeatable local demo target.

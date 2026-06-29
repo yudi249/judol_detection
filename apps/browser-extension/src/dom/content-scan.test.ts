@@ -2,7 +2,10 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { MESSAGE_TYPES, type ScanBatchResponseMessage } from '../shared';
-import { runJudolLensScanOnce } from './content-scan';
+import {
+  runJudolLensScanOnce,
+  runJudolLensScanForRoots,
+} from './content-scan';
 
 describe('content scan integration flow', () => {
   beforeEach(() => {
@@ -73,4 +76,91 @@ describe('content scan integration flow', () => {
       'Terdeteksi JudolLens',
     );
   });
+
+  it('scans dynamic roots without rescanning previously processed nodes', async () => {
+    document.body.innerHTML =
+      '<main><p>bonus slot awal sudah diproses</p></main>';
+    const processedNodes = new WeakSet<Node>();
+
+    await runJudolLensScanOnce({
+      root: document.body,
+      url: 'http://localhost:5173/fixture',
+      processedNodes,
+      sendMessage: async (message) =>
+        createResponse(message.payload.requestId, [
+          {
+            id: 'scan-node-0',
+            text: 'bonus slot awal sudah diproses',
+          },
+        ]),
+    });
+
+    const dynamicPost = document.createElement('article');
+    dynamicPost.dataset.postId = 'dynamic';
+    dynamicPost.innerHTML = '<p>bonus new member slot gacor dinamis</p>';
+    document.querySelector('main')?.append(dynamicPost);
+
+    const sentTexts: string[] = [];
+    const applied = await runJudolLensScanForRoots({
+      roots: [dynamicPost],
+      url: 'http://localhost:5173/fixture',
+      processedNodes,
+      sendMessage: async (message) => {
+        sentTexts.push(...message.payload.items.map((item) => item.text));
+        return createResponse(message.payload.requestId, [
+          {
+            id: 'scan-node-0',
+            text: 'bonus new member slot gacor dinamis',
+          },
+        ]);
+      },
+    });
+
+    expect(applied).toBe(1);
+    expect(sentTexts).toEqual(['bonus new member slot gacor dinamis']);
+    expect(document.querySelectorAll('.judollens-detected')).toHaveLength(2);
+  });
 });
+
+function createResponse(
+  requestId: string,
+  results: Array<{ id: string; text: string }>,
+): ScanBatchResponseMessage {
+  return {
+    type: MESSAGE_TYPES.scanBatch,
+    payload: {
+      requestId,
+      model: {
+        name: 'mock',
+        version: '0.1.0',
+        architecture: 'rule-based',
+        isMock: true,
+      },
+      summary: {
+        totalItems: results.length,
+        judolCount: results.length,
+        unicodeSuspiciousCount: 0,
+        processingTimeMs: 3,
+      },
+      results: results.map((result) => ({
+        id: result.id,
+        label: 'judol',
+        confidence: 0.94,
+        riskLevel: 'high',
+        action: 'blur',
+        reasons: [],
+        matchedTerms: ['slot'],
+        unicodeAnalysis: {
+          hasSuspiciousUnicode: false,
+          suspiciousCount: 0,
+          spans: [],
+        },
+        display: {
+          snippet: result.text,
+          highlightRanges: [],
+        },
+      })),
+      errors: [],
+    },
+  };
+}

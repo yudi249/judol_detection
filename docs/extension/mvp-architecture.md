@@ -58,6 +58,13 @@ Keep only technical state here, such as processed node IDs, scan queue, and pend
 
 EXT-006 keeps the content script extraction-only: it may create typed scan batch messages, but it must not write storage, run prediction directly, or modify page DOM. Background coordination starts in EXT-007 and overlay mutations start in EXT-008.
 
+EXT-009 adds dynamic content handling inside the content script. After the
+initial scan, a `MutationObserver` watches `childList` additions only, debounces
+batches for 150ms, scans newly added visible roots, and reuses the same
+processed-node tracking so unchanged nodes are not rescanned. JudolLens overlay
+nodes are ignored to prevent feedback loops. The content script still does not
+write storage or run prediction directly.
+
 ### Background Service Worker
 
 Responsibilities:

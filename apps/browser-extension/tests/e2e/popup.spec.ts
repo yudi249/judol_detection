@@ -18,6 +18,10 @@ const overlayScreenshotPath = path.resolve(
   __dirname,
   '../../../../docs/extension/screenshots/ext-008-on-page-overlay.png',
 );
+const dynamicOverlayScreenshotPath = path.resolve(
+  __dirname,
+  '../../../../docs/extension/screenshots/ext-009-dynamic-overlay.png',
+);
 
 async function launchExtensionContext(): Promise<{
   context: BrowserContext;
@@ -119,6 +123,49 @@ test.describe('JudolLens popup extension', () => {
 
       await page.screenshot({
         path: overlayScreenshotPath,
+        fullPage: true,
+      });
+    } finally {
+      await context.close();
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
+    }
+  });
+
+  test('applies overlay to dynamically inserted fixture content', async () => {
+    const { context } = await launchExtensionContext();
+    const { server, url } = await startOverlayFixtureServer();
+
+    try {
+      const page = await context.newPage();
+
+      await page.goto(url);
+
+      await expect(page.locator('.judollens-detected')).toHaveCount(2);
+
+      await page
+        .getByRole('button', { name: 'Tambah komentar dinamis' })
+        .click();
+
+      await expect(page.locator('.judollens-detected')).toHaveCount(3);
+      await expect(
+        page.locator('.author', { hasText: 'Komentar Dinamis' }),
+      ).toBeVisible();
+      await expect(
+        page.locator('.judollens-detected').filter({
+          hasText: 'bonus new member slot gacor dinamis',
+        }),
+      ).toHaveCount(1);
+
+      await page.screenshot({
+        path: dynamicOverlayScreenshotPath,
         fullPage: true,
       });
     } finally {

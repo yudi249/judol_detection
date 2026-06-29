@@ -31,10 +31,22 @@
         font-size: 13px;
         margin-bottom: 8px;
       }
+
+      button {
+        background: #111923;
+        border: 0;
+        border-radius: 6px;
+        color: #fff;
+        cursor: pointer;
+        font: 600 14px/1 "Segoe UI", system-ui, sans-serif;
+        margin-bottom: 16px;
+        padding: 10px 14px;
+      }
     </style>
   </head>
   <body>
     <main>
+      <button id="insert-dynamic" type="button">Tambah komentar dinamis</button>
       <article data-post-id="clean">
         <div class="author">Forum Kampus</div>
         <p>Besok kita bahas tugas kuliah jam 9 ya.</p>
@@ -48,5 +60,23 @@
         <p>bοnus slοt gacor deposit 10k</p>
       </article>
     </main>
+    <script>
+      document
+        .querySelector("#insert-dynamic")
+        .addEventListener("click", () => {
+          const article = document.createElement("article");
+          article.dataset.postId = "dynamic";
+
+          const author = document.createElement("div");
+          author.className = "author";
+          author.textContent = "Komentar Dinamis";
+
+          const paragraph = document.createElement("p");
+          paragraph.textContent = "bonus new member slot gacor dinamis";
+
+          article.append(author, paragraph);
+          document.querySelector("main").append(article);
+        });
+    </script>
   </body>
 </html>
