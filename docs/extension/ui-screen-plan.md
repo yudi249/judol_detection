@@ -220,6 +220,11 @@ MVP 2 scenarios:
 
 The extension must detect feed content itself. Do not let content scripts read expected-answer labels as prediction hints.
 
+EXT-010 implementation note: the simulation page is a local HTTP page served
+from `apps/browser-extension/simulation/` with `pnpm simulation`, not an
+extension-owned React page. This keeps the demo faithful to the target-page DOM
+flow while still being deterministic for thesis evaluation.
+
 ## On-Page Overlay
 
 Purpose: show detection on the target page without breaking third-party DOM.

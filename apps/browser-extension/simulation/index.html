@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JudolLens Simulation</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #eef3f8;
+        --panel: #ffffff;
+        --ink: #111923;
+        --muted: #64748b;
+        --line: #d8e1ea;
+        --blue: #2563eb;
+        --amber: #d97706;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        background:
+          radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 32rem),
+          var(--bg);
+        color: var(--ink);
+        font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        margin: 0;
+      }
+
+      header {
+        background: rgba(255, 255, 255, 0.82);
+        border-bottom: 1px solid var(--line);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      .shell {
+        margin: 0 auto;
+        max-width: 920px;
+        padding: 24px;
+      }
+
+      .masthead {
+        align-items: center;
+        display: flex;
+        gap: 16px;
+        justify-content: space-between;
+      }
+
+      h1 {
+        font-size: 24px;
+        letter-spacing: 0;
+        line-height: 1.15;
+        margin: 0;
+      }
+
+      .subtitle {
+        color: var(--muted);
+        font-size: 14px;
+        margin: 6px 0 0;
+      }
+
+      button {
+        background: var(--ink);
+        border: 0;
+        border-radius: 7px;
+        color: #fff;
+        cursor: pointer;
+        font: 700 14px/1 "Segoe UI", system-ui, sans-serif;
+        padding: 11px 14px;
+      }
+
+      main {
+        display: grid;
+        gap: 18px;
+      }
+
+      .section-title {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        margin: 8px 0 -4px;
+        text-transform: uppercase;
+      }
+
+      article {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+        padding: 18px;
+      }
+
+      .meta {
+        align-items: center;
+        color: var(--muted);
+        display: flex;
+        font-size: 13px;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .dot {
+        background: var(--blue);
+        border-radius: 999px;
+        display: inline-block;
+        height: 7px;
+        width: 7px;
+      }
+
+      .post-text {
+        font-size: 16px;
+        line-height: 1.65;
+        margin: 0;
+      }
+
+      .mixed-feed {
+        display: grid;
+        gap: 12px;
+      }
+
+      .mixed-feed article {
+        box-shadow: none;
+      }
+
+      .note {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="shell masthead">
+        <div>
+          <h1>JudolLens Simulation</h1>
+          <p class="subtitle">Local target page for MVP scan, overlay, and dynamic-content evaluation.</p>
+        </div>
+        <button id="insert-dynamic" type="button">Tambah komentar dinamis</button>
+      </div>
+    </header>
+
+    <main class="shell" aria-label="Simulation feed">
+      <p class="note">
+        Halaman ini sengaja berupa web page biasa di localhost agar content script JudolLens memproses DOM target secara realistis.
+      </p>
+
+      <h2 class="section-title">Baseline Feed</h2>
+
+      <article data-case-id="clean" data-expected-label="non_judol">
+        <div class="meta"><span class="dot"></span><span>Forum Kampus</span></div>
+        <p class="post-text">Besok kita bahas tugas kuliah jam 9 ya.</p>
+      </article>
+
+      <article data-case-id="false-positive" data-expected-label="non_judol">
+        <div class="meta"><span class="dot"></span><span>Jadwal Praktikum</span></div>
+        <p class="post-text">Slot waktu praktikum sudah penuh untuk minggu ini.</p>
+      </article>
+
+      <article data-case-id="plain-judol" data-expected-label="judol">
+        <div class="meta"><span class="dot"></span><span>Komentar Publik</span></div>
+        <p class="post-text">bonus new member slot gacor deposit 10k malam ini</p>
+      </article>
+
+      <article data-case-id="unicode-judol" data-expected-label="judol">
+        <div class="meta"><span class="dot"></span><span>Komentar Obfuscated</span></div>
+        <p class="post-text">bοnus slοt gacor deposit 10k</p>
+      </article>
+
+      <h2 class="section-title">Mixed Feed</h2>
+
+      <section class="mixed-feed" aria-label="Mixed simulation cases">
+        <article data-case-id="mixed-clean" data-expected-label="non_judol">
+          <div class="meta"><span class="dot"></span><span>Diskusi Umum</span></div>
+          <p class="post-text">Materi presentasi sudah saya kirim ke grup kelas.</p>
+        </article>
+
+        <article data-case-id="mixed-plain-judol" data-expected-label="judol">
+          <div class="meta"><span class="dot"></span><span>Komentar Campuran</span></div>
+          <p class="post-text">promo bonus slot gacor khusus member baru</p>
+        </article>
+
+        <article data-case-id="mixed-unicode-judol" data-expected-label="judol">
+          <div class="meta"><span class="dot"></span><span>Komentar Campuran</span></div>
+          <p class="post-text">bοnus slοt gacor deposit 10k</p>
+        </article>
+      </section>
+    </main>
+
+    <script type="application/json" id="expected-results">
+      {
+        "clean": "non_judol",
+        "false-positive": "non_judol",
+        "plain-judol": "judol",
+        "unicode-judol": "judol",
+        "mixed-clean": "non_judol",
+        "mixed-plain-judol": "judol",
+        "mixed-unicode-judol": "judol",
+        "dynamic": "judol"
+      }
+    </script>
+    <script>
+      document
+        .querySelector("#insert-dynamic")
+        .addEventListener("click", () => {
+          const article = document.createElement("article");
+          article.dataset.caseId = "dynamic";
+          article.dataset.expectedLabel = "judol";
+
+          const meta = document.createElement("div");
+          meta.className = "meta";
+
+          const dot = document.createElement("span");
+          dot.className = "dot";
+
+          const author = document.createElement("span");
+          author.textContent = "Komentar Dinamis";
+
+          const paragraph = document.createElement("p");
+          paragraph.className = "post-text";
+          paragraph.textContent = "bonus new member slot gacor dinamis";
+
+          meta.append(dot, author);
+          article.append(meta, paragraph);
+          document.querySelector("main").append(article);
+        });
+    </script>
+  </body>
+</html>

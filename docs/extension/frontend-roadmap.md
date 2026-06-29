@@ -182,6 +182,13 @@ Goal: thesis evaluation has a repeatable local demo target.
 
 Done when the full MVP 1 flow works from simulation page to popup/log evidence.
 
+EXT-010 implements the simulation as a local HTTP target page under
+`apps/browser-extension/simulation/`, served by `pnpm simulation` at
+`http://127.0.0.1:4173/`. It is intentionally not a `chrome-extension://`
+React page so the content script scans and annotates it like a third-party
+target page. Expected answers stay in data attributes/JSON metadata, not visible
+feed text.
+
 ## Milestone 11: Options + Logs
 
 Goal: MVP 2 adds useful control and research evidence review.

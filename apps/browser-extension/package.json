@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
+    "simulation": "node scripts/serve-simulation.mjs",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox",
     "test": "vitest --exclude tests/e2e/**",
