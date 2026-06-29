@@ -253,6 +253,15 @@ Safe DOM rules:
 - use stable JudolLens class names such as `judollens-detected`, `judollens-blur`, and `judollens-unicode-span`
 - avoid reprocessing the same node repeatedly
 
+EXT-008 implementation notes:
+
+- content script applies overlays only after background returns prediction results
+- high-risk `blur` results use `judollens-detected judollens-blur`
+- medium-risk `warn` results use `judollens-detected judollens-warning`
+- suspicious Unicode characters use `judollens-unicode-span`
+- the compact label text is `Terdeteksi JudolLens`
+- overlay CSS is injected once per page with `style[data-judollens-style]`
+
 ## Visual Tone
 
 Use a calm security visual style with clear research evidence. Avoid a noisy cyberpunk look. Risk badges should be readable and restrained.

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createScanBatchRequest,
   detectPlatformFromUrl,
+  scanVisibleTextCandidateRefs,
   scanVisibleTextCandidates,
 } from './dom-scanner';
 
@@ -93,6 +94,38 @@ describe('content DOM scanner', () => {
       'scan-node-1',
     ]);
     expect(secondScan).toEqual([]);
+  });
+
+  it('can return candidate refs for later overlay application without leaking DOM nodes into requests', () => {
+    document.body.innerHTML = `
+      <article data-post-id="a1">
+        <p>bonus slot gacor malam ini</p>
+      </article>
+    `;
+
+    const refs = scanVisibleTextCandidateRefs(document.body);
+    const request = createScanBatchRequest(
+      refs.map((ref) => ref.item),
+      {
+        url: 'http://localhost:5173/simulation',
+        requestId: 'refs-scan',
+        capturedAt: '2026-06-29T00:00:00.000Z',
+      },
+    );
+
+    expect(refs).toHaveLength(1);
+    expect(refs[0].textNode.textContent).toBe('bonus slot gacor malam ini');
+    expect(request.items[0]).toEqual({
+      id: 'scan-node-0',
+      text: 'bonus slot gacor malam ini',
+      context: {
+        kind: 'post',
+        selectorHint: 'article[data-post-id]',
+        visible: true,
+        languageHint: 'id',
+      },
+    });
+    expect(request.items[0]).not.toHaveProperty('textNode');
   });
 });
 

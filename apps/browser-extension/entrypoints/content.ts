@@ -1,8 +1,4 @@
-import {
-  createScanBatchMessage,
-  createScanBatchRequest,
-  scanVisibleTextCandidates,
-} from '@/dom';
+import { runJudolLensScanOnce } from '@/dom';
 
 const processedNodes = new WeakSet<Node>();
 
@@ -25,19 +21,16 @@ export default defineContentScript({
         return;
       }
 
-      const candidates = scanVisibleTextCandidates(document.body, {
-        processedNodes,
-      });
-      const request = createScanBatchRequest(candidates, {
-        url: location.href,
-        pageTitle: document.title,
-      });
-      const message = createScanBatchMessage(request);
-
       try {
-        await browser.runtime.sendMessage(message);
+        await runJudolLensScanOnce({
+          root: document.body,
+          url: location.href,
+          pageTitle: document.title,
+          processedNodes,
+          sendMessage: (message) => browser.runtime.sendMessage(message),
+        });
       } catch (error) {
-        console.debug('JudolLens scan message is waiting for EXT-007.', error);
+        console.debug('JudolLens overlay scan failed safely.', error);
       }
     };
 

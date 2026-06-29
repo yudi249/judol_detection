@@ -150,6 +150,8 @@ Goal: detections are visible on the target page.
 
 Done when detected judol text on the simulation page is blurred or warned and Unicode spans are highlighted.
 
+EXT-008 applies overlays from background prediction responses in the content script. It uses vanilla DOM wrappers and scoped `judollens-*` CSS only; MutationObserver and dynamic rescans remain Milestone 9.
+
 ## Milestone 9: MutationObserver
 
 Goal: dynamic content is handled.

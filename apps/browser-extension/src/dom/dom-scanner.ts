@@ -26,6 +26,11 @@ const SKIPPED_TAGS = new Set([
 
 export type ScanCandidate = PredictionItem;
 
+export type ScanCandidateRef = {
+  item: ScanCandidate;
+  textNode: Text;
+};
+
 export type ScanVisibleTextOptions = {
   minTextLength?: number;
   maxTextLength?: number;
@@ -48,10 +53,17 @@ export function scanVisibleTextCandidates(
   root: ParentNode,
   options: ScanVisibleTextOptions = {},
 ): ScanCandidate[] {
+  return scanVisibleTextCandidateRefs(root, options).map((ref) => ref.item);
+}
+
+export function scanVisibleTextCandidateRefs(
+  root: ParentNode,
+  options: ScanVisibleTextOptions = {},
+): ScanCandidateRef[] {
   const minTextLength = options.minTextLength ?? DEFAULT_MIN_TEXT_LENGTH;
   const maxTextLength = options.maxTextLength ?? DEFAULT_MAX_TEXT_LENGTH;
   const processedNodes = options.processedNodes;
-  const candidates: ScanCandidate[] = [];
+  const refs: ScanCandidateRef[] = [];
 
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
@@ -80,10 +92,13 @@ export function scanVisibleTextCandidates(
         0,
         maxTextLength,
       );
-      candidates.push({
-        id: `scan-node-${candidates.length}`,
-        text,
-        context: buildCandidateContext(parentElement),
+      refs.push({
+        item: {
+          id: `scan-node-${refs.length}`,
+          text,
+          context: buildCandidateContext(parentElement),
+        },
+        textNode: node as Text,
       });
       processedNodes?.add(node);
     }
@@ -91,7 +106,7 @@ export function scanVisibleTextCandidates(
     node = walker.nextNode();
   }
 
-  return candidates;
+  return refs;
 }
 
 export function createScanBatchRequest(
