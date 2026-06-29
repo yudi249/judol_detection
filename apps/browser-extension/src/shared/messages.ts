@@ -19,6 +19,7 @@ export const MESSAGE_TYPES = {
   clearDetectionLogs: 'judollens:clear-detection-logs',
   getManualAnalysis: 'judollens:get-manual-analysis',
   analyzeManualText: 'judollens:analyze-manual-text',
+  openManualAnalysis: 'judollens:open-manual-analysis',
   saveManualAnalysis: 'judollens:save-manual-analysis',
 } as const;
 
@@ -78,6 +79,14 @@ export type AnalyzeManualTextMessage = {
   };
 };
 
+export type OpenManualAnalysisMessage = {
+  type: typeof MESSAGE_TYPES.openManualAnalysis;
+  payload: {
+    inputText: string;
+    sourceUrl?: string;
+  };
+};
+
 export type ManualAnalyzeResponseMessage = {
   type: typeof MESSAGE_TYPES.analyzeManualText;
   payload: {
@@ -110,6 +119,7 @@ export type JudolLensRequestMessage =
   | ClearDetectionLogsMessage
   | GetManualAnalysisMessage
   | AnalyzeManualTextMessage
+  | OpenManualAnalysisMessage
   | SaveManualAnalysisMessage;
 
 export type JudolLensResponseMessage =

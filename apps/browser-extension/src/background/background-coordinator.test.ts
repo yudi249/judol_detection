@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   MESSAGE_TYPES,
   STORAGE_KEYS,
@@ -335,5 +335,28 @@ describe('background prediction coordinator', () => {
       }),
     );
     expect(logs[0]).not.toHaveProperty('sourceUrl');
+  });
+
+  it('delegates selected text opening to the manual analysis opener', async () => {
+    const openManualAnalysis = vi.fn().mockResolvedValue(undefined);
+
+    await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.openManualAnalysis,
+        payload: {
+          inputText: 'bonus slot gacor dari selection',
+          sourceUrl: 'https://web.telegram.org/a/#chat',
+        },
+      },
+      {
+        storageArea: area,
+        openManualAnalysis,
+      },
+    );
+
+    expect(openManualAnalysis).toHaveBeenCalledWith({
+      selectionText: 'bonus slot gacor dari selection',
+      pageUrl: 'https://web.telegram.org/a/#chat',
+    });
   });
 });

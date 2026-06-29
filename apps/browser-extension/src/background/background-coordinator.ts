@@ -1,5 +1,9 @@
 import { mockModel, predictBatch as predictBatchWithMock } from '../predictor';
 import {
+  openManualAnalysisFromSelection,
+  type ManualAnalysisSelectionInput,
+} from './manual-context-menu';
+import {
   MESSAGE_TYPES,
   type DetectionLog,
   type ExtensionStateResponseMessage,
@@ -27,10 +31,12 @@ import {
 } from '../storage';
 
 type PredictBatch = (request: PredictionBatchRequest) => PredictionBatchResponse;
+type OpenManualAnalysis = (input: ManualAnalysisSelectionInput) => Promise<void>;
 
 export type BackgroundCoordinatorDependencies = {
   storageArea?: StorageArea;
   predictBatch?: PredictBatch;
+  openManualAnalysis?: OpenManualAnalysis;
 };
 
 export async function handleJudolLensMessage(
@@ -52,6 +58,12 @@ export async function handleJudolLensMessage(
       return getManualAnalysis(dependencies.storageArea);
     case MESSAGE_TYPES.analyzeManualText:
       return analyzeManualText(message.payload, dependencies);
+    case MESSAGE_TYPES.openManualAnalysis:
+      await (dependencies.openManualAnalysis ?? openManualAnalysisFromSelection)({
+        selectionText: message.payload.inputText,
+        pageUrl: message.payload.sourceUrl,
+      });
+      return undefined;
     case MESSAGE_TYPES.saveManualAnalysis:
       return saveManualAnalysis(
         message.payload.state,

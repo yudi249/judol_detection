@@ -1,7 +1,9 @@
 import {
+  createSelectionAnalyzeTrigger,
   createDynamicContentObserver,
   runJudolLensScanForRoots,
 } from '@/dom';
+import { MESSAGE_TYPES } from '@/shared';
 
 const processedNodes = new WeakSet<Node>();
 
@@ -51,8 +53,21 @@ export default defineContentScript({
       });
       observer.start();
 
+      const selectionTrigger = createSelectionAnalyzeTrigger({
+        onAnalyze: (inputText) =>
+          browser.runtime.sendMessage({
+            type: MESSAGE_TYPES.openManualAnalysis,
+            payload: {
+              inputText,
+              sourceUrl: location.href,
+            },
+          }),
+      });
+      selectionTrigger.start();
+
       ctx.addEventListener(window, 'pagehide', () => {
         observer.stop();
+        selectionTrigger.stop();
       });
     };
 

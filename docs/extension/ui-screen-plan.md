@@ -206,6 +206,13 @@ confidence, risk, action, matched terms, Unicode breakdown, reasons, and model
 metadata, and can save both `judol` and `non_judol` results to Logs. The context
 menu item is `Analyze with JudolLens`; `Copy result JSON` remains post-MVP.
 
+EXT-013 implementation note: supported target pages also show a small floating
+`Analyze with JudolLens` button after text selection. This button is rendered by
+the content script with vanilla DOM and scoped `judollens-selection-*` CSS, then
+opens Manual Analysis with the selected text. Keep the browser context menu as a
+fallback because different websites handle selection and right-click behavior
+differently.
+
 ## Simulation Page
 
 Purpose: make extension behavior testable without relying on external platforms.

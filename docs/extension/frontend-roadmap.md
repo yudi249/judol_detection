@@ -227,6 +227,12 @@ context menu flow, show matched terms, Unicode breakdown, reasons, model
 metadata, and save both `judol` and `non_judol` results to bounded Logs for
 research evidence. `Copy result JSON` remains post-MVP.
 
+EXT-013 adds a floating selection trigger on supported target pages. When users
+select text, the content script shows a lightweight vanilla DOM button labeled
+`Analyze with JudolLens`; clicking it sends the selected text to the background
+and opens `manual-analysis.html`. This complements the browser context menu for
+web apps such as Telegram that override right-click behavior.
+
 ## MVP Boundaries
 
 MVP 1 is complete after Milestone 10.
