@@ -1,13 +1,16 @@
-import { predictBatch as predictBatchWithMock } from '../predictor';
+import { mockModel, predictBatch as predictBatchWithMock } from '../predictor';
 import {
   MESSAGE_TYPES,
   type DetectionLog,
   type ExtensionStateResponseMessage,
   type JudolLensRequestMessage,
   type JudolLensResponseMessage,
+  type ManualAnalysisResponseMessage,
+  type ManualAnalyzeResponseMessage,
   type PredictionBatchRequest,
   type PredictionBatchResponse,
   type PredictionResult,
+  type SaveManualAnalysisResponseMessage,
   type ScanBatchResponseMessage,
 } from '../shared';
 import {
@@ -15,7 +18,9 @@ import {
   clearDetectionLogs,
   getDetectionLogs,
   getExtensionSettings,
+  getManualAnalysisState,
   getSessionStats,
+  setManualAnalysisState,
   updateExtensionSettings,
   updateSessionStats,
   type StorageArea,
@@ -43,8 +48,16 @@ export async function handleJudolLensMessage(
     case MESSAGE_TYPES.clearDetectionLogs:
       await clearDetectionLogs(dependencies.storageArea);
       return getExtensionState(dependencies.storageArea);
+    case MESSAGE_TYPES.getManualAnalysis:
+      return getManualAnalysis(dependencies.storageArea);
+    case MESSAGE_TYPES.analyzeManualText:
+      return analyzeManualText(message.payload, dependencies);
     case MESSAGE_TYPES.saveManualAnalysis:
-      return undefined;
+      return saveManualAnalysis(
+        message.payload.state,
+        message.payload.result,
+        dependencies.storageArea,
+      );
     default:
       return undefined;
   }
@@ -188,6 +201,129 @@ function createDetectionLog(
     unicodeAnalysis: result.unicodeAnalysis,
     model: response.model,
     requestId: request.requestId,
+    itemId: result.id,
+  };
+}
+
+async function getManualAnalysis(
+  storageArea?: StorageArea,
+): Promise<ManualAnalysisResponseMessage> {
+  return {
+    type: MESSAGE_TYPES.getManualAnalysis,
+    payload: {
+      state: await getManualAnalysisState(storageArea),
+    },
+  };
+}
+
+async function analyzeManualText(
+  payload: {
+    inputText: string;
+    sourcePlatform?: PredictionBatchRequest['source']['platform'];
+    sourceUrl?: string;
+  },
+  dependencies: BackgroundCoordinatorDependencies,
+): Promise<ManualAnalyzeResponseMessage> {
+  const storageArea = dependencies.storageArea;
+  const predictBatch = dependencies.predictBatch ?? predictBatchWithMock;
+  const settings = await getExtensionSettings(storageArea);
+  const capturedAt = new Date().toISOString();
+  const request: PredictionBatchRequest = {
+    requestId: `manual-${Date.now().toString(36)}`,
+    source: {
+      url: payload.sourceUrl,
+      platform: payload.sourcePlatform ?? 'unknown',
+      capturedAt,
+    },
+    client: {
+      extensionVersion: '0.0.0',
+      predictionMode: settings.predictionMode,
+      threshold: settings.threshold,
+    },
+    items: [
+      {
+        id: 'manual-item',
+        text: payload.inputText,
+        context: {
+          kind: 'unknown',
+          visible: true,
+          languageHint: 'id',
+        },
+      },
+    ],
+  };
+  const response = predictBatch(request);
+  const result = response.results[0];
+  const model = response.model;
+  const state = await setManualAnalysisState(
+    {
+      schemaVersion: 1,
+      inputText: payload.inputText,
+      sourcePlatform: request.source.platform,
+      sourceUrl: payload.sourceUrl,
+      analyzedAt: capturedAt,
+      result,
+      model,
+      requestId: request.requestId,
+    },
+    storageArea,
+  );
+
+  return {
+    type: MESSAGE_TYPES.analyzeManualText,
+    payload: {
+      state,
+      result,
+      model,
+      requestId: request.requestId,
+    },
+  };
+}
+
+async function saveManualAnalysis(
+  state: Awaited<ReturnType<typeof getManualAnalysisState>>,
+  result: PredictionResult,
+  storageArea?: StorageArea,
+): Promise<SaveManualAnalysisResponseMessage> {
+  const savedState = await setManualAnalysisState(
+    {
+      ...state,
+      result,
+      analyzedAt: state.analyzedAt ?? new Date().toISOString(),
+    },
+    storageArea,
+  );
+  await appendDetectionLogs([createManualDetectionLog(savedState, result)], storageArea);
+
+  return {
+    type: MESSAGE_TYPES.saveManualAnalysis,
+    payload: {
+      state: savedState,
+    },
+  };
+}
+
+function createManualDetectionLog(
+  state: Awaited<ReturnType<typeof getManualAnalysisState>>,
+  result: PredictionResult,
+): DetectionLog {
+  const timestamp = state.analyzedAt ?? new Date().toISOString();
+  const requestId = state.requestId ?? `manual-${Date.now().toString(36)}`;
+
+  return {
+    id: `${requestId}:${result.id}`,
+    timestamp,
+    platform: state.sourcePlatform,
+    sourceUrl: state.sourceUrl,
+    snippet: result.display.snippet,
+    label: result.label,
+    confidence: result.confidence,
+    riskLevel: result.riskLevel,
+    action: result.action,
+    matchedTerms: result.matchedTerms,
+    unicodeAnalysis: result.unicodeAnalysis,
+    model: state.model ?? mockModel,
+    requestId,
     itemId: result.id,
   };
 }

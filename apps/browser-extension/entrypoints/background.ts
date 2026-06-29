@@ -1,7 +1,10 @@
 import { handleJudolLensMessage } from '../src/background';
+import { registerManualAnalysisContextMenu } from '../src/background/manual-context-menu';
 import type { JudolLensRequestMessage } from '../src/shared';
 
 export default defineBackground(() => {
+  registerManualAnalysisContextMenu();
+
   browser.runtime.onMessage.addListener(
     (
       message: JudolLensRequestMessage,

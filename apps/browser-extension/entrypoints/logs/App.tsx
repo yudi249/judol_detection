@@ -204,6 +204,7 @@ function App() {
                   <TableRow>
                     <TableHead>Time</TableHead>
                     <TableHead>Platform</TableHead>
+                    <TableHead>Label</TableHead>
                     <TableHead>Risk</TableHead>
                     <TableHead>Confidence</TableHead>
                     <TableHead>Unicode</TableHead>
@@ -221,6 +222,7 @@ function App() {
                     >
                       <TableCell>{row.timeLabel}</TableCell>
                       <TableCell>{row.platformLabel}</TableCell>
+                      <TableCell>{row.label}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{row.riskLabel}</Badge>
                       </TableCell>

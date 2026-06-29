@@ -11,6 +11,7 @@ import {
 import {
   ActivityIcon,
   AlertTriangleIcon,
+  FileSearchIcon,
   FileTextIcon,
   Loader2Icon,
   SettingsIcon,
@@ -191,7 +192,7 @@ function App() {
 
               <Separator className="bg-white/10" />
 
-              <footer className="grid grid-cols-2 gap-2">
+              <footer className="grid grid-cols-3 gap-2">
                 <NavigationButton
                   icon={FileTextIcon}
                   label="Logs"
@@ -205,6 +206,15 @@ function App() {
                   icon={SettingsIcon}
                   label="Options"
                   onClick={() => void browser.runtime.openOptionsPage()}
+                />
+                <NavigationButton
+                  icon={FileSearchIcon}
+                  label="Analyze"
+                  onClick={() =>
+                    void browser.tabs.create({
+                      url: browser.runtime.getURL('/manual-analysis.html'),
+                    })
+                  }
                 />
               </footer>
             </>

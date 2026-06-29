@@ -199,6 +199,13 @@ MVP 2 requirements:
 
 `Copy result JSON` is useful for thesis writing but can wait if time is tight.
 
+EXT-012 implementation note: Manual Analysis is a full-page WXT React screen at
+`manual-analysis.html`. It loads `manual:lastAnalysis`, analyzes pasted or
+selected text through the background mock predictor, displays label,
+confidence, risk, action, matched terms, Unicode breakdown, reasons, and model
+metadata, and can save both `judol` and `non_judol` results to Logs. The context
+menu item is `Analyze with JudolLens`; `Copy result JSON` remains post-MVP.
+
 ## Simulation Page
 
 Purpose: make extension behavior testable without relying on external platforms.
@@ -303,7 +310,6 @@ MVP 2:
 6. Manual analysis page
 ```
 
-EXT-011 completes MVP 2 Options and Log Review. Manual Analysis remains the
-next MVP 2 screen.
+EXT-012 completes MVP 2 Manual Analysis.
 
 Do not polish secondary screens before the automatic protection flow is working end to end.

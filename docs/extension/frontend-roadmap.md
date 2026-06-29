@@ -221,6 +221,12 @@ Goal: selected or pasted text can be inspected directly.
 
 Done when selected page text can be analyzed and saved as evidence.
 
+EXT-012 implements Manual Analysis as an unlisted React page at
+`manual-analysis.html`. It can analyze pasted text, load selected text from the
+context menu flow, show matched terms, Unicode breakdown, reasons, model
+metadata, and save both `judol` and `non_judol` results to bounded Logs for
+research evidence. `Copy result JSON` remains post-MVP.
+
 ## MVP Boundaries
 
 MVP 1 is complete after Milestone 10.

@@ -5,6 +5,9 @@ import {
   defaultExtensionSettings,
   type DetectionLog,
   type ExtensionStorageSchema,
+  type ManualAnalysisState,
+  type ManualAnalyzeResponseMessage,
+  type ManualAnalysisResponseMessage,
   type PredictionBatchRequest,
   type ScanBatchResponseMessage,
   type ScanBatchMessage,
@@ -211,5 +214,126 @@ describe('background prediction coordinator', () => {
         message: 'predictor exploded',
       }),
     );
+  });
+
+  it('analyzes manual text and persists the latest manual analysis state', async () => {
+    const response = (await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.analyzeManualText,
+        payload: {
+          inputText: 'bοnus slοt gacor deposit 10k',
+          sourcePlatform: 'simulation',
+          sourceUrl: 'http://127.0.0.1:4173/',
+        },
+      },
+      { storageArea: area },
+    )) as ManualAnalyzeResponseMessage;
+
+    expect(response.type).toBe(MESSAGE_TYPES.analyzeManualText);
+    expect(response.payload.result).toEqual(
+      expect.objectContaining({
+        id: 'manual-item',
+        label: 'judol',
+        riskLevel: 'high',
+      }),
+    );
+
+    const state = area.peek(STORAGE_KEYS.manualLastAnalysis) as ManualAnalysisState;
+    expect(state).toEqual(
+      expect.objectContaining({
+        inputText: 'bοnus slοt gacor deposit 10k',
+        sourcePlatform: 'simulation',
+        result: expect.objectContaining({
+          label: 'judol',
+        }),
+      }),
+    );
+    expect(state).not.toHaveProperty('sourceUrl');
+  });
+
+  it('returns the latest manual analysis state', async () => {
+    await area.setItem<ManualAnalysisState>(STORAGE_KEYS.manualLastAnalysis, {
+      schemaVersion: 1,
+      inputText: 'bonus slot gacor',
+      sourcePlatform: 'telegram',
+    });
+
+    const response = (await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.getManualAnalysis,
+      },
+      { storageArea: area },
+    )) as ManualAnalysisResponseMessage;
+
+    expect(response).toEqual({
+      type: MESSAGE_TYPES.getManualAnalysis,
+      payload: {
+        state: {
+          schemaVersion: 1,
+          inputText: 'bonus slot gacor',
+          sourcePlatform: 'telegram',
+        },
+      },
+    });
+  });
+
+  it('saves manual analysis and appends judol and non-judol logs', async () => {
+    const judolResponse = (await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.analyzeManualText,
+        payload: {
+          inputText: 'bonus new member slot gacor',
+          sourcePlatform: 'simulation',
+        },
+      },
+      { storageArea: area },
+    )) as ManualAnalyzeResponseMessage;
+    const cleanResponse = (await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.analyzeManualText,
+        payload: {
+          inputText: 'slot waktu praktikum sudah penuh',
+          sourcePlatform: 'simulation',
+        },
+      },
+      { storageArea: area },
+    )) as ManualAnalyzeResponseMessage;
+
+    await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.saveManualAnalysis,
+        payload: {
+          state: judolResponse.payload.state,
+          result: judolResponse.payload.result,
+        },
+      },
+      { storageArea: area },
+    );
+    await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.saveManualAnalysis,
+        payload: {
+          state: cleanResponse.payload.state,
+          result: cleanResponse.payload.result,
+        },
+      },
+      { storageArea: area },
+    );
+
+    const logs = area.peek(STORAGE_KEYS.detectionLogs) as DetectionLog[];
+    expect(logs).toHaveLength(2);
+    expect(logs.map((log) => log.label)).toEqual(['non_judol', 'judol']);
+    expect(logs[0]).toEqual(
+      expect.objectContaining({
+        id: expect.stringMatching(/^manual-.+:manual-item$/),
+        platform: 'simulation',
+        snippet: 'slot waktu praktikum sudah penuh',
+        riskLevel: 'low',
+        action: 'none',
+        requestId: expect.stringContaining('manual-'),
+        itemId: 'manual-item',
+      }),
+    );
+    expect(logs[0]).not.toHaveProperty('sourceUrl');
   });
 });

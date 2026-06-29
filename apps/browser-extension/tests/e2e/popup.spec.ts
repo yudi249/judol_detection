@@ -41,8 +41,10 @@ test.describe('JudolLens popup extension', () => {
       await expect(page.getByText('Belum ada deteksi')).toBeVisible();
       const logsButton = page.getByRole('button', { name: 'Logs' });
       const optionsButton = page.getByRole('button', { name: 'Options' });
+      const analyzeButton = page.getByRole('button', { name: 'Analyze' });
       await expect(logsButton).toBeEnabled();
       await expect(optionsButton).toBeEnabled();
+      await expect(analyzeButton).toBeEnabled();
 
       const logsPagePromise = context.waitForEvent('page');
       await logsButton.click();
@@ -55,6 +57,12 @@ test.describe('JudolLens popup extension', () => {
       const optionsPage = await optionsPagePromise;
       await expect(optionsPage).toHaveURL(/options\.html$/);
       await optionsPage.close();
+
+      const analyzePagePromise = context.waitForEvent('page');
+      await analyzeButton.click();
+      const analyzePage = await analyzePagePromise;
+      await expect(analyzePage).toHaveURL(/manual-analysis\.html$/);
+      await analyzePage.close();
 
       const protection = page.getByRole('switch', { name: 'Proteksi halaman' });
       await expect(protection).toHaveAttribute('aria-checked', 'true');

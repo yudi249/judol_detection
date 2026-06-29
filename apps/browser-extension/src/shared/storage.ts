@@ -98,6 +98,8 @@ export type ManualAnalysisState = {
   sourceUrl?: string;
   analyzedAt?: string;
   result?: PredictionResult;
+  model?: PredictionModelInfo;
+  requestId?: string;
 };
 
 export type ExtensionStorageSchema = {

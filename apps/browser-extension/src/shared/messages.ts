@@ -1,8 +1,10 @@
 import type {
   PredictionBatchRequest,
   PredictionBatchResponse,
+  PredictionModelInfo,
   PredictionResult,
 } from './prediction';
+import type { Platform } from './platform';
 import type {
   DetectionLog,
   ExtensionSettings,
@@ -15,6 +17,8 @@ export const MESSAGE_TYPES = {
   getExtensionState: 'judollens:get-extension-state',
   updateSettings: 'judollens:update-settings',
   clearDetectionLogs: 'judollens:clear-detection-logs',
+  getManualAnalysis: 'judollens:get-manual-analysis',
+  analyzeManualText: 'judollens:analyze-manual-text',
   saveManualAnalysis: 'judollens:save-manual-analysis',
 } as const;
 
@@ -54,6 +58,36 @@ export type ClearDetectionLogsMessage = {
   type: typeof MESSAGE_TYPES.clearDetectionLogs;
 };
 
+export type GetManualAnalysisMessage = {
+  type: typeof MESSAGE_TYPES.getManualAnalysis;
+};
+
+export type ManualAnalysisResponseMessage = {
+  type: typeof MESSAGE_TYPES.getManualAnalysis;
+  payload: {
+    state: ManualAnalysisState;
+  };
+};
+
+export type AnalyzeManualTextMessage = {
+  type: typeof MESSAGE_TYPES.analyzeManualText;
+  payload: {
+    inputText: string;
+    sourcePlatform?: Platform;
+    sourceUrl?: string;
+  };
+};
+
+export type ManualAnalyzeResponseMessage = {
+  type: typeof MESSAGE_TYPES.analyzeManualText;
+  payload: {
+    state: ManualAnalysisState;
+    result: PredictionResult;
+    model: PredictionModelInfo;
+    requestId: string;
+  };
+};
+
 export type SaveManualAnalysisMessage = {
   type: typeof MESSAGE_TYPES.saveManualAnalysis;
   payload: {
@@ -62,13 +96,25 @@ export type SaveManualAnalysisMessage = {
   };
 };
 
+export type SaveManualAnalysisResponseMessage = {
+  type: typeof MESSAGE_TYPES.saveManualAnalysis;
+  payload: {
+    state: ManualAnalysisState;
+  };
+};
+
 export type JudolLensRequestMessage =
   | ScanBatchMessage
   | GetExtensionStateMessage
   | UpdateSettingsMessage
   | ClearDetectionLogsMessage
+  | GetManualAnalysisMessage
+  | AnalyzeManualTextMessage
   | SaveManualAnalysisMessage;
 
 export type JudolLensResponseMessage =
   | ScanBatchResponseMessage
-  | ExtensionStateResponseMessage;
+  | ExtensionStateResponseMessage
+  | ManualAnalysisResponseMessage
+  | ManualAnalyzeResponseMessage
+  | SaveManualAnalysisResponseMessage;

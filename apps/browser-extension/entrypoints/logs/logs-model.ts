@@ -11,6 +11,7 @@ export type LogRow = {
   id: string;
   timeLabel: string;
   platformLabel: string;
+  label: string;
   riskLabel: string;
   confidenceLabel: string;
   unicodeLabel: string;
@@ -113,6 +114,7 @@ function toLogRow(log: DetectionLog): LogRow {
     id: log.id,
     timeLabel: formatTime(log.timestamp),
     platformLabel: formatPlatform(log.platform),
+    label: log.label.toUpperCase(),
     riskLabel: formatRisk(log.riskLevel),
     confidenceLabel: formatConfidence(log.confidence),
     unicodeLabel: String(log.unicodeAnalysis.suspiciousCount),

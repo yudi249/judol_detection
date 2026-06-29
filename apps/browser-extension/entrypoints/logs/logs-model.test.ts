@@ -21,6 +21,7 @@ describe('logs model', () => {
       latestPlatform: 'Simulation',
     });
     expect(model.rows).toHaveLength(3);
+    expect(model.rows[0].label).toBe('JUDOL');
     expect(model.selectedLog?.id).toBe('log-newest');
     expect(model.emptyState).toBe(false);
   });

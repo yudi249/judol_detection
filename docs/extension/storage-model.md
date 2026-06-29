@@ -171,6 +171,8 @@ export type ManualAnalysisState = {
   sourceUrl?: string
   analyzedAt?: string
   result?: PredictionResult
+  model?: PredictionModelInfo
+  requestId?: string
 }
 ```
 
@@ -180,6 +182,8 @@ Rules:
 - Limit input text length, for example 2,000 characters.
 - Clear it when the user clears the manual input.
 - Convert the result into a `DetectionLog` only when the user chooses to save it.
+- Manual saves may append `judol` and `non_judol` logs so clean samples and false-positive traps remain available for thesis evidence.
+- Store optional `model` and `requestId` with the latest analysis so the manual page and saved log can show reproducible model metadata.
 - Omit `sourceUrl` when `settings.storeSourceUrl` is false.
 
 ## cache:predictions

@@ -1,11 +1,13 @@
 import {
   MESSAGE_TYPES,
+  detectPlatformFromUrl,
   type PredictionBatchRequest,
   type PredictionItem,
   type PredictionItemContext,
-  type PredictionSourcePlatform,
   type ScanBatchMessage,
 } from '../shared';
+
+export { detectPlatformFromUrl } from '../shared';
 
 const DEFAULT_MIN_TEXT_LENGTH = 8;
 const DEFAULT_MAX_TEXT_LENGTH = 500;
@@ -139,31 +141,6 @@ export function createScanBatchMessage(
     type: MESSAGE_TYPES.scanBatch,
     payload: request,
   };
-}
-
-export function detectPlatformFromUrl(url: string): PredictionSourcePlatform {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return 'unknown';
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  if (host === 'youtube.com' || host.endsWith('.youtube.com')) {
-    return 'youtube';
-  }
-  if (host === 'web.telegram.org') {
-    return 'telegram';
-  }
-  if (host === 'x.com' || host.endsWith('.x.com') || host === 'twitter.com') {
-    return 'x';
-  }
-  if (host === 'localhost' || host === '127.0.0.1') {
-    return 'simulation';
-  }
-
-  return 'unknown';
 }
 
 function createRequestId(): string {
