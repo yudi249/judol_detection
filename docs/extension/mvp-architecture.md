@@ -56,6 +56,8 @@ Responsibilities:
 
 Keep only technical state here, such as processed node IDs, scan queue, and pending batch state.
 
+EXT-006 keeps the content script extraction-only: it may create typed scan batch messages, but it must not write storage, run prediction directly, or modify page DOM. Background coordination starts in EXT-007 and overlay mutations start in EXT-008.
+
 ### Background Service Worker
 
 Responsibilities:

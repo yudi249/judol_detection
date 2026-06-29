@@ -121,6 +121,8 @@ Goal: the extension can collect visible text candidates from pages.
 
 Done when the content script can scan the simulation page without changing it.
 
+EXT-006 implements extraction only: the content script builds a typed scan batch and sends it best-effort to background, but prediction, stats/log writes, overlays, and dynamic rescans wait for later milestones.
+
 ## Milestone 7: Background Coordinator
 
 Goal: background coordinates prediction and state updates.

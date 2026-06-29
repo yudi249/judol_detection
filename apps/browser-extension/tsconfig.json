@@ -7,6 +7,8 @@
     "paths": {
       "@/*": ["./*"],
       "@/components/*": ["./src/components/*"],
+      "@/dom": ["./src/dom/index.ts"],
+      "@/dom/*": ["./src/dom/*"],
       "@/hooks/*": ["./src/hooks/*"],
       "@/lib/*": ["./src/lib/*"],
       "@/shared": ["./src/shared/index.ts"],
