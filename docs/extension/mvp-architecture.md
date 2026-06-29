@@ -70,6 +70,8 @@ Responsibilities:
 
 The predictor boundary must be swappable. UI and content scripts should not know whether results came from mock logic or FastAPI.
 
+EXT-007 implements the first background coordinator: it receives typed scan batches, runs the mock predictor, updates session stats and bounded detection logs, and returns batch prediction responses. It does not apply page overlays; content-script DOM mutation starts in EXT-008.
+
 ### React UI
 
 Use React for extension-owned pages:

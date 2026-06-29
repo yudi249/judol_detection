@@ -1,13 +1,23 @@
-import type { ExtensionSettings, PredictionBatchResponse } from '@/shared';
-import type { StorageArea } from '@/storage';
-
-const backgroundTypeSmoke: {
-  settings?: ExtensionSettings;
-  response?: PredictionBatchResponse;
-  storage?: StorageArea;
-} = {};
+import { handleJudolLensMessage } from '../src/background';
+import type { JudolLensRequestMessage } from '../src/shared';
 
 export default defineBackground(() => {
-  void backgroundTypeSmoke;
-  console.log('Hello background!', { id: browser.runtime.id });
+  browser.runtime.onMessage.addListener(
+    (
+      message: JudolLensRequestMessage,
+      _sender,
+      sendResponse: (response: unknown) => void,
+    ) => {
+      void handleJudolLensMessage(message)
+        .then((response) => {
+          sendResponse(response);
+        })
+        .catch((error) => {
+          console.error('JudolLens background message failed.', error);
+          sendResponse(undefined);
+        });
+
+      return true;
+    },
+  );
 });

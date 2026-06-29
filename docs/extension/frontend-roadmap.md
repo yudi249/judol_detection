@@ -136,6 +136,8 @@ Goal: background coordinates prediction and state updates.
 
 Done when scanning produces popup counters and recent logs.
 
+EXT-007 wires `judollens:scan-batch` in the background service worker to the mock predictor and storage helpers. Content scripts still only scan/send, and page overlays remain deferred to Milestone 8.
+
 ## Milestone 8: On-Page Overlay
 
 Goal: detections are visible on the target page.
