@@ -1,4 +1,12 @@
-import { MESSAGE_TYPES, type ScanBatchMessage, type ScanBatchResponseMessage } from '../shared';
+import {
+  MESSAGE_TYPES,
+  detectPlatformFromUrl,
+  type ExtensionStateResponseMessage,
+  type GetExtensionStateMessage,
+  type Platform,
+  type ScanBatchMessage,
+  type ScanBatchResponseMessage,
+} from '../shared';
 import { applyPredictionOverlays } from './overlay';
 import {
   createScanBatchMessage,
@@ -13,7 +21,9 @@ export type RunJudolLensScanOptions = {
   url: string;
   pageTitle?: string;
   processedNodes?: WeakSet<Node>;
-  sendMessage: (message: ScanBatchMessage) => Promise<unknown>;
+  sendMessage: (
+    message: ScanBatchMessage | GetExtensionStateMessage,
+  ) => Promise<unknown>;
 };
 
 export type RunJudolLensScanForRootsOptions = Omit<
@@ -35,13 +45,23 @@ export async function runJudolLensScanOnce(
 export async function runJudolLensScanForRoots(
   options: RunJudolLensScanForRootsOptions,
 ): Promise<number> {
+  const state = (await options.sendMessage({
+    type: MESSAGE_TYPES.getExtensionState,
+  })) as ExtensionStateResponseMessage | undefined;
+  const settings = state?.payload.settings;
+  const platform = detectPlatformFromUrl(options.url);
+
+  if (settings && !isPlatformEnabled(platform, settings.platformScope)) {
+    return 0;
+  }
+
   const candidateRefs = collectCandidateRefs(
     options.roots,
     options.processedNodes,
   );
   const request = createScanBatchRequest(
     candidateRefs.map((ref) => ref.item),
-    createPageContext(options),
+    createPageContext(options, state),
   );
   const response = (await options.sendMessage(
     createScanBatchMessage(request),
@@ -52,7 +72,9 @@ export async function runJudolLensScanForRoots(
   }
 
   return applyPredictionOverlays(response.payload.results, candidateRefs, {
-    highlightUnicode: true,
+    autoBlur: settings?.autoBlur,
+    censorMode: settings?.censorMode,
+    highlightUnicode: settings?.highlightUnicode ?? true,
   });
 }
 
@@ -77,9 +99,23 @@ function collectCandidateRefs(
 
 function createPageContext(
   options: RunJudolLensScanForRootsOptions,
+  state?: ExtensionStateResponseMessage,
 ): ScanBatchPageContext {
   return {
     url: options.url,
     pageTitle: options.pageTitle,
+    predictionMode: state?.payload.settings.predictionMode,
+    threshold: state?.payload.settings.threshold,
   };
+}
+
+function isPlatformEnabled(
+  platform: Platform,
+  scope: ExtensionStateResponseMessage['payload']['settings']['platformScope'],
+): boolean {
+  if (platform === 'unknown') {
+    return scope.otherSites;
+  }
+
+  return scope[platform];
 }

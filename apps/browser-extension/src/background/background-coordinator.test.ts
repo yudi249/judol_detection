@@ -145,6 +145,72 @@ describe('background prediction coordinator', () => {
     expect(logs[0]).not.toHaveProperty('sourceUrl');
   });
 
+  it('uses stored threshold instead of the content script request threshold', async () => {
+    await area.setItem(STORAGE_KEYS.settings, {
+      ...defaultExtensionSettings,
+      threshold: 0.1,
+    });
+
+    const message: ScanBatchMessage = {
+      type: MESSAGE_TYPES.scanBatch,
+      payload: {
+        ...createBatchRequest(),
+        client: {
+          ...createBatchRequest().client,
+          threshold: 0.75,
+        },
+        items: [
+          {
+            id: 'false-positive-trap',
+            text: 'slot waktu praktikum sudah penuh',
+            context: {
+              kind: 'post',
+              visible: true,
+              languageHint: 'id',
+            },
+          },
+        ],
+      },
+    };
+
+    const response = (await handleJudolLensMessage(message, {
+      storageArea: area,
+    })) as ScanBatchResponseMessage;
+
+    expect(response.payload.results[0]).toEqual(
+      expect.objectContaining({
+        id: 'false-positive-trap',
+        label: 'judol',
+      }),
+    );
+    expect(response.payload.summary.judolCount).toBe(1);
+
+    const stats = area.peek(STORAGE_KEYS.sessionStats) as SessionStats;
+    expect(stats.detectedCount).toBe(1);
+  });
+
+  it('updates scan stats but does not append logs when bounded evidence storage is disabled', async () => {
+    await area.setItem(STORAGE_KEYS.settings, {
+      ...defaultExtensionSettings,
+      storeBoundedEvidence: false,
+    });
+
+    const response = (await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.scanBatch,
+        payload: createBatchRequest(),
+      },
+      { storageArea: area },
+    )) as ScanBatchResponseMessage;
+
+    expect(response.payload.summary.judolCount).toBe(1);
+
+    const stats = area.peek(STORAGE_KEYS.sessionStats) as SessionStats;
+    expect(stats.scannedCount).toBe(2);
+    expect(stats.detectedCount).toBe(1);
+    expect(area.peek(STORAGE_KEYS.detectionLogs)).toBeUndefined();
+  });
+
   it('accumulates session stats across scan batches', async () => {
     const firstMessage: ScanBatchMessage = {
       type: MESSAGE_TYPES.scanBatch,

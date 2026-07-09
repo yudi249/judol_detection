@@ -1,4 +1,4 @@
-import type { PredictionResult, UnicodeSpan } from '../shared';
+import type { DetectionAction, PredictionResult, UnicodeSpan } from '../shared';
 import type { ScanCandidateRef } from './dom-scanner';
 
 const STYLE_ATTRIBUTE = 'data-judollens-style';
@@ -6,6 +6,8 @@ const OVERLAY_ATTRIBUTE = 'data-judollens-overlay';
 const LABEL_TEXT = 'Terdeteksi JudolLens';
 
 export type ApplyPredictionOverlayOptions = {
+  autoBlur?: boolean;
+  censorMode?: DetectionAction;
   highlightUnicode?: boolean;
 };
 
@@ -21,7 +23,8 @@ export function applyPredictionOverlays(
   let appliedCount = 0;
 
   for (const result of results) {
-    if (result.label !== 'judol' || result.action === 'none') {
+    const action = resolveOverlayAction(result, options);
+    if (result.label !== 'judol' || action === 'none') {
       continue;
     }
 
@@ -30,7 +33,7 @@ export function applyPredictionOverlays(
       continue;
     }
 
-    const wrapper = createDetectionWrapper(result);
+    const wrapper = createDetectionWrapper(result, action);
     appendTextWithUnicodeHighlights(
       wrapper,
       ref.textNode.data,
@@ -73,6 +76,15 @@ export function ensureJudolLensOverlayStyles(): void {
   background: rgba(245, 158, 11, 0.14);
   outline: 1px solid rgba(245, 158, 11, 0.5);
 }
+.judollens-hide {
+  background: rgba(15, 23, 42, 0.92);
+  outline: 1px solid rgba(239, 68, 68, 0.55);
+}
+.judollens-hide .judollens-content {
+  color: transparent;
+  text-shadow: none;
+  user-select: none;
+}
 .judollens-unicode-span {
   background: rgba(245, 158, 11, 0.36);
   border-bottom: 2px solid #f59e0b;
@@ -95,12 +107,34 @@ export function ensureJudolLensOverlayStyles(): void {
   document.head.append(style);
 }
 
-function createDetectionWrapper(result: PredictionResult): HTMLSpanElement {
+function resolveOverlayAction(
+  result: PredictionResult,
+  options: ApplyPredictionOverlayOptions,
+): DetectionAction {
+  if (options.censorMode) {
+    return options.censorMode;
+  }
+
+  if (result.action === 'blur' && options.autoBlur === false) {
+    return 'warn';
+  }
+
+  return result.action;
+}
+
+function createDetectionWrapper(
+  result: PredictionResult,
+  action: DetectionAction,
+): HTMLSpanElement {
   const wrapper = document.createElement('span');
   wrapper.classList.add('judollens-detected');
-  wrapper.classList.add(
-    result.action === 'blur' ? 'judollens-blur' : 'judollens-warning',
-  );
+  if (action === 'hide') {
+    wrapper.classList.add('judollens-hide');
+  } else {
+    wrapper.classList.add(
+      action === 'blur' ? 'judollens-blur' : 'judollens-warning',
+    );
+  }
   wrapper.setAttribute(OVERLAY_ATTRIBUTE, result.id);
   wrapper.setAttribute('data-judollens-risk', result.riskLevel);
   return wrapper;

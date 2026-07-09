@@ -157,6 +157,7 @@ Rules:
 - Store short snippets only, around 160-240 characters.
 - Do not store full page text or full browsing history.
 - Omit `sourceUrl` when `settings.storeSourceUrl` is false.
+- Do not append detection logs when `settings.storeBoundedEvidence` is false; session stats may still update so the popup can show scan activity.
 - Logs must be clearable from the UI.
 
 ## manual:lastAnalysis

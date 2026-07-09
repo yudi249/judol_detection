@@ -144,16 +144,16 @@ function App() {
               <section className="grid gap-2">
                 <SectionTitle>Protection</SectionTitle>
                 <ToggleRow
-                  label="Proteksi halaman"
-                  description={model.status.description}
+                  label="Aktifkan mode sensor"
+                  description="Terapkan mode sensor pilihan Options"
                   checked={model.controls.pageProtectionEnabled}
                   onCheckedChange={(checked) =>
                     void patchSettings(getPageProtectionPatch(checked))
                   }
                 />
                 <ToggleRow
-                  label="Auto blur"
-                  description="Censor mode blur untuk deteksi judol"
+                  label="Blur otomatis"
+                  description="Opsional untuk deteksi risiko tinggi"
                   checked={model.controls.autoBlurEnabled}
                   onCheckedChange={(checked) =>
                     void patchSettings({ autoBlur: checked })

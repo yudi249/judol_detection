@@ -64,7 +64,9 @@ test.describe('JudolLens popup extension', () => {
       await expect(analyzePage).toHaveURL(/manual-analysis\.html$/);
       await analyzePage.close();
 
-      const protection = page.getByRole('switch', { name: 'Proteksi halaman' });
+      const protection = page.getByRole('switch', {
+        name: 'Aktifkan mode sensor',
+      });
       await expect(protection).toHaveAttribute('aria-checked', 'true');
 
       await protection.click();

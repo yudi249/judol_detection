@@ -84,6 +84,102 @@ describe('JudolLens page overlay', () => {
     expect(wrapper?.textContent).toContain('bonus slot gacor malam ini');
   });
 
+  it('forces warning overlay when censor mode is warn', () => {
+    document.body.innerHTML =
+      '<p data-target>bonus slot gacor malam ini</p>';
+    const textNode = getTextNode();
+
+    applyPredictionOverlays(
+      [createResult({ action: 'blur', riskLevel: 'high' })],
+      [{ item: { id: 'candidate-1', text: textNode.textContent ?? '', context: { kind: 'post', visible: true } }, textNode }],
+      { censorMode: 'warn' },
+    );
+
+    const wrapper = document.querySelector('.judollens-detected');
+    expect(wrapper?.classList.contains('judollens-warning')).toBe(true);
+    expect(wrapper?.classList.contains('judollens-blur')).toBe(false);
+  });
+
+  it('supports hide mode while keeping the JudolLens label visible', () => {
+    document.body.innerHTML =
+      '<p data-target>bonus slot gacor malam ini</p>';
+    const textNode = getTextNode();
+
+    applyPredictionOverlays(
+      [createResult({ action: 'blur', riskLevel: 'high' })],
+      [{ item: { id: 'candidate-1', text: textNode.textContent ?? '', context: { kind: 'post', visible: true } }, textNode }],
+      { censorMode: 'hide' },
+    );
+
+    const wrapper = document.querySelector('.judollens-detected');
+    expect(wrapper?.classList.contains('judollens-hide')).toBe(true);
+    expect(document.querySelector('.judollens-label')?.textContent).toBe(
+      'Terdeteksi JudolLens',
+    );
+  });
+
+  it('downgrades high-risk blur to warning when auto blur is disabled', () => {
+    document.body.innerHTML =
+      '<p data-target>bonus slot gacor malam ini</p>';
+    const textNode = getTextNode();
+
+    applyPredictionOverlays(
+      [createResult({ action: 'blur', riskLevel: 'high' })],
+      [{ item: { id: 'candidate-1', text: textNode.textContent ?? '', context: { kind: 'post', visible: true } }, textNode }],
+      { autoBlur: false },
+    );
+
+    const wrapper = document.querySelector('.judollens-detected');
+    expect(wrapper?.classList.contains('judollens-warning')).toBe(true);
+    expect(wrapper?.classList.contains('judollens-blur')).toBe(false);
+  });
+
+  it('does not apply overlays when censor mode is none', () => {
+    document.body.innerHTML =
+      '<p data-target>bonus slot gacor malam ini</p>';
+    const original = document.body.innerHTML;
+    const textNode = getTextNode();
+
+    const applied = applyPredictionOverlays(
+      [createResult({ action: 'blur', riskLevel: 'high' })],
+      [{ item: { id: 'candidate-1', text: textNode.textContent ?? '', context: { kind: 'post', visible: true } }, textNode }],
+      { censorMode: 'none' },
+    );
+
+    expect(applied).toBe(0);
+    expect(document.body.innerHTML).toBe(original);
+  });
+
+  it('does not wrap suspicious Unicode spans when highlightUnicode is disabled', () => {
+    document.body.innerHTML = '<p data-target>bÎ¿nus slÎ¿t gacor</p>';
+    const textNode = getTextNode();
+
+    applyPredictionOverlays(
+      [
+        createResult({
+          unicodeAnalysis: {
+            hasSuspiciousUnicode: true,
+            suspiciousCount: 1,
+            spans: [
+              {
+                start: 1,
+                end: 2,
+                char: 'Î¿',
+                reason: 'homoglyph',
+                normalizedAs: 'o',
+              },
+            ],
+          },
+        }),
+      ],
+      [{ item: { id: 'candidate-1', text: textNode.textContent ?? '', context: { kind: 'post', visible: true } }, textNode }],
+      { highlightUnicode: false },
+    );
+
+    expect(document.querySelector('.judollens-detected')).not.toBeNull();
+    expect(document.querySelector('.judollens-unicode-span')).toBeNull();
+  });
+
   it('does not modify DOM for clean results or action none', () => {
     document.body.innerHTML =
       '<p data-target>slot waktu praktikum sudah penuh</p>';

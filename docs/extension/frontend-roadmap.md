@@ -233,6 +233,26 @@ select text, the content script shows a lightweight vanilla DOM button labeled
 and opens `manual-analysis.html`. This complements the browser context menu for
 web apps such as Telegram that override right-click behavior.
 
+## Milestone 14: Options Live Settings
+
+Goal: Options controls affect the automatic protection flow, not only stored
+settings.
+
+- content scripts fetch current settings before initial and dynamic scans
+- platform scope can disable scanning for simulation or supported platforms
+- threshold and prediction mode from Options are applied to scan batches
+- censor mode controls blur, warn, hide, or no page overlay behavior
+- auto blur can downgrade high-risk blur to warning
+- Unicode highlight can be disabled while detections still run
+- bounded evidence and source URL settings control log persistence
+
+Done when changing Options and opening the simulation page changes the page
+overlay, stored logs, and session evidence consistently.
+
+EXT-014 wires the existing Options page into live content-script and background
+behavior. It keeps all target-page DOM changes vanilla/scoped CSS and does not
+start FastAPI integration.
+
 ## MVP Boundaries
 
 MVP 1 is complete after Milestone 10.

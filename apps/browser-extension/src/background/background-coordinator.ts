@@ -83,12 +83,29 @@ async function handleScanBatch(
   const predictBatch = dependencies.predictBatch ?? predictBatchWithMock;
 
   try {
-    const response = predictBatch(request);
+    const settings = await getExtensionSettings(storageArea);
+    const effectiveRequest: PredictionBatchRequest = {
+      ...request,
+      client: {
+        ...request.client,
+        predictionMode: settings.predictionMode,
+        threshold: settings.threshold,
+      },
+    };
+    const response = predictBatch(effectiveRequest);
 
-    await Promise.all([
-      updateStatsFromResponse(request, response, storageArea),
-      appendDetectionLogs(createDetectionLogs(request, response), storageArea),
-    ]);
+    const writes: Array<Promise<unknown>> = [
+      updateStatsFromResponse(effectiveRequest, response, storageArea),
+    ];
+    if (settings.storeBoundedEvidence) {
+      writes.push(
+        appendDetectionLogs(
+          createDetectionLogs(effectiveRequest, response),
+          storageArea,
+        ),
+      );
+    }
+    await Promise.all(writes);
 
     return {
       type: MESSAGE_TYPES.scanBatch,

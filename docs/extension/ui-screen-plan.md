@@ -105,6 +105,15 @@ a browser tab. It reads state from `judollens:get-extension-state`, writes
 patches through `judollens:update-settings`, supports reset defaults, and keeps
 API health check disabled/coming-soon until the backend integration milestone.
 
+EXT-014 live behavior note: Options settings are operational in the automatic
+protection flow. Platform scope disables scans for that platform. Threshold and
+prediction mode are used for scan batches. Censor mode controls page overlays:
+`blur` blurs detected content, `warn` keeps text readable with warning styling,
+`hide` hides detected text with the JudolLens label, and `none` scans/logs
+without applying page overlays. Turning Auto blur off downgrades high-risk blur
+to warning. Turning Unicode highlight off keeps detections active but suppresses
+inline Unicode span marks.
+
 ## Log Review Page
 
 Purpose: provide evidence for debugging, demos, and thesis evaluation.
@@ -266,6 +275,8 @@ Supported visual modes:
 
 - Blur: hide detected text with a compact JudolLens label
 - Warning: keep text visible but mark it as suspicious
+- Hide: visually hide detected text with a compact JudolLens label
+- None: scan and log without modifying the target page
 - Highlight Unicode: mark suspicious spans inline
 
 Recommended label:
