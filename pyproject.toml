@@ -4,7 +4,21 @@ version = "0.1.0"
 description = "Monorepo skripsi untuk deteksi promosi judi online berbahasa Indonesia yang robust terhadap manipulasi Unicode."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pandas>=3.0.3",
+    "pyarrow>=24.0.0",
+    "telethon>=1.44.0",
+    "yt-dlp>=2026.7.4",
+]
 
 [project.scripts]
 judol-detection = "main:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = "--basetemp=.pytest-work-20260714 -p no:cacheprovider"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
