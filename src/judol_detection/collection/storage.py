@@ -8,11 +8,14 @@ from .database import connect
 from .keywords import classify_weak_label
 from .models import CollectedDocument, StoredDocument, utc_now_iso
 from .normalizer import normalize_document_text
+from .deduplication import is_near_duplicate
 
 
 class CollectionStorage:
-    def __init__(self, database_path: Path) -> None:
+    def __init__(self, database_path: Path, *, candidate_only: bool = False, near_duplicate_threshold: float | None = None) -> None:
         self.connection = connect(database_path)
+        self.candidate_only = candidate_only
+        self.near_duplicate_threshold = near_duplicate_threshold
 
     def start_run(self, platform: str, collector_name: str, seed_or_query: str, config: dict | None = None) -> int:
         cursor = self.connection.execute(
@@ -27,6 +30,12 @@ class CollectionStorage:
     def store_document(self, run_id: int, document: CollectedDocument) -> StoredDocument:
         normalized = normalize_document_text(document.text_raw)
         weak_label = classify_weak_label(normalized.normalized_text)
+        if self.candidate_only and weak_label.label == 0:
+            return StoredDocument(False, None, weak_label.label, "non_candidate")
+        if self.near_duplicate_threshold is not None:
+            existing = self.connection.execute("SELECT text_raw FROM documents").fetchall()
+            if any(is_near_duplicate(document.text_raw, row["text_raw"], threshold=self.near_duplicate_threshold) for row in existing):
+                return StoredDocument(False, None, weak_label.label, "near_duplicate")
         source_item_id_hash = (
             hashlib.sha256(document.source_item_id.encode("utf-8")).hexdigest()
             if document.source_item_id
@@ -59,7 +68,7 @@ class CollectionStorage:
                 "UPDATE collection_runs SET fetched_count = fetched_count + 1, duplicate_count = duplicate_count + 1 WHERE run_id = ?",
                 (run_id,),
             )
-        return StoredDocument(False, None, weak_label.label)
+        return StoredDocument(False, None, weak_label.label, "exact_duplicate")
 
     def finish_run(self, run_id: int) -> None:
         self._set_run_status(run_id, "completed", None)
@@ -79,6 +88,23 @@ class CollectionStorage:
         if row is None:
             raise KeyError(f"Unknown collection run: {run_id}")
         return dict(row)
+
+    def get_telegram_channel_state(self, username: str) -> dict[str, object]:
+        row = self.connection.execute("SELECT * FROM telegram_channel_state WHERE username = ?", (username.lower(),)).fetchone()
+        return dict(row) if row else {"username": username.lower(), "last_message_id": 0, "latest_yield": 0.0}
+
+    def record_telegram_channel_result(self, run_id: int, username: str, mode: str, *, query: str | None, messages_read: int, inserted_count: int, duplicate_count: int, last_message_id: int) -> None:
+        username = username.lower()
+        yield_value = inserted_count / messages_read if messages_read else 0.0
+        with self.connection:
+            self.connection.execute(
+                "INSERT INTO telegram_channel_state(username,last_message_id,last_collected_at,latest_yield) VALUES(?,?,?,?) ON CONFLICT(username) DO UPDATE SET last_message_id=MAX(last_message_id, excluded.last_message_id),last_collected_at=excluded.last_collected_at,latest_yield=excluded.latest_yield",
+                (username, last_message_id, utc_now_iso(), yield_value),
+            )
+            self.connection.execute(
+                "INSERT INTO telegram_channel_runs VALUES(?,?,?,?,?,?,?,?)",
+                (run_id, username, mode, query, messages_read, inserted_count, duplicate_count, utc_now_iso()),
+            )
 
     def add_annotation(self, document_id: int | None, label: str, annotator_id: str, notes: str | None = None) -> None:
         if document_id is None:

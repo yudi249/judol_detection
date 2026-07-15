@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "seeds": [
+    {"username": "NewEraForAll", "group": "candidate", "enabled": true},
+    {"username": "markleekpop", "group": "candidate", "enabled": true},
+    {"username": "sumberdanna", "group": "candidate", "enabled": true},
+    {"username": "busanslotofficial", "group": "candidate", "enabled": true},
+    {"username": "LEGACYNIIHBOS", "group": "candidate", "enabled": true},
+    {"username": "CravingHeatPublic", "group": "candidate", "enabled": true},
+    {"username": "skizofernia_area", "group": "candidate", "enabled": true},
+    {"username": "Indochek", "group": "candidate", "enabled": true},
+    {"username": "thenineee", "group": "candidate", "enabled": true},
+    {"username": "METAPPH1", "group": "candidate", "enabled": true}
+  ]
+}

@@ -48,6 +48,22 @@ CREATE TABLE IF NOT EXISTS annotations (
     notes TEXT,
     annotated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS telegram_channel_state (
+    username TEXT PRIMARY KEY,
+    last_message_id INTEGER NOT NULL DEFAULT 0,
+    last_collected_at TEXT,
+    latest_yield REAL NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS telegram_channel_runs (
+    run_id INTEGER NOT NULL REFERENCES collection_runs(run_id),
+    username TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    query TEXT,
+    messages_read INTEGER NOT NULL,
+    inserted_count INTEGER NOT NULL,
+    duplicate_count INTEGER NOT NULL,
+    completed_at TEXT NOT NULL
+);
 """
 
 

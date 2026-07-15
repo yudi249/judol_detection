@@ -37,6 +37,7 @@ class StoredDocument:
     inserted: bool
     document_id: int | None
     weak_label: int
+    skip_reason: str | None = None
 
 
 def utc_now_iso() -> str:

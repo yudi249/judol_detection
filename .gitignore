@@ -29,6 +29,9 @@ models/final/*
 
 # Notebook runtime artifacts
 .ipynb_checkpoints/
+.telegram_scraper_session*
+*.session
+*.session-journal
 
 # Test and tooling caches
 .pytest_cache/
