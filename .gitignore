@@ -24,6 +24,20 @@ experiments/runs/*
 models/checkpoints/*
 models/final/*
 
+# Local SQLite collection databases
+*.sqlite
+*.sqlite3
+*.db
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.csv
+*.parquet
+
+# Persistent local browser state for X collection
+data/browser-profiles/
+data/raw/x/
+
 # Keep directory placeholders
 !.gitkeep
 
@@ -35,6 +49,8 @@ models/final/*
 
 # Test and tooling caches
 .pytest_cache/
+.pytest-*/
+.tmp/
 .ruff_cache/
 .mypy_cache/
 htmlcov/
