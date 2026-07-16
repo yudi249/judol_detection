@@ -38,6 +38,9 @@ models/final/*
 data/browser-profiles/
 data/raw/x/
 
+# Locally saved research papers; retain Markdown notes and source metadata.
+docs/research/**/*.pdf
+
 # Keep directory placeholders
 !.gitkeep
 
