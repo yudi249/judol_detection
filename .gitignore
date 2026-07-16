@@ -41,6 +41,9 @@ data/raw/x/
 # Locally saved research papers; retain Markdown notes and source metadata.
 docs/research/**/*.pdf
 
+# Agent-generated working plans and specifications are local session artifacts.
+docs/superpowers/
+
 # Keep directory placeholders
 !.gitkeep
 
