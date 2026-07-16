@@ -12,10 +12,13 @@ from .deduplication import is_near_duplicate
 
 
 class CollectionStorage:
-    def __init__(self, database_path: Path, *, candidate_only: bool = False, near_duplicate_threshold: float | None = None) -> None:
+    def __init__(self, database_path: Path, *, candidate_only: bool = False, near_duplicate_threshold: float | None = None, language_filter: str = "off") -> None:
+        if language_filter not in {"off", "strict"}:
+            raise ValueError("language_filter must be 'off' or 'strict'")
         self.connection = connect(database_path)
         self.candidate_only = candidate_only
         self.near_duplicate_threshold = near_duplicate_threshold
+        self.language_filter = language_filter
 
     def start_run(self, platform: str, collector_name: str, seed_or_query: str, config: dict | None = None) -> int:
         cursor = self.connection.execute(
@@ -28,6 +31,8 @@ class CollectionStorage:
         return int(cursor.lastrowid)
 
     def store_document(self, run_id: int, document: CollectedDocument) -> StoredDocument:
+        if self.language_filter == "strict" and document.language_hint == "non_id":
+            return StoredDocument(False, None, 0, "non_indonesian")
         normalized = normalize_document_text(document.text_raw)
         weak_label = classify_weak_label(normalized.normalized_text)
         if self.candidate_only and weak_label.label == 0:
@@ -104,6 +109,30 @@ class CollectionStorage:
             self.connection.execute(
                 "INSERT INTO telegram_channel_runs VALUES(?,?,?,?,?,?,?,?)",
                 (run_id, username, mode, query, messages_read, inserted_count, duplicate_count, utc_now_iso()),
+            )
+
+    def record_x_query_result(
+        self,
+        run_id: int,
+        query: str,
+        *,
+        scrolls: int,
+        responses_seen: int,
+        posts_observed: int,
+        inserted_count: int,
+        duplicate_count: int,
+        stop_reason: str,
+    ) -> None:
+        with self.connection:
+            self.connection.execute(
+                """INSERT INTO x_query_runs (
+                    run_id, query, scrolls, responses_seen, posts_observed,
+                    inserted_count, duplicate_count, stop_reason, completed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    run_id, query, scrolls, responses_seen, posts_observed,
+                    inserted_count, duplicate_count, stop_reason, utc_now_iso(),
+                ),
             )
 
     def add_annotation(self, document_id: int | None, label: str, annotator_id: str, notes: str | None = None) -> None:

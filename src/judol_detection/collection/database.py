@@ -64,6 +64,18 @@ CREATE TABLE IF NOT EXISTS telegram_channel_runs (
     duplicate_count INTEGER NOT NULL,
     completed_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS x_query_runs (
+    run_id INTEGER NOT NULL REFERENCES collection_runs(run_id),
+    query TEXT NOT NULL,
+    scrolls INTEGER NOT NULL,
+    responses_seen INTEGER NOT NULL,
+    posts_observed INTEGER NOT NULL,
+    inserted_count INTEGER NOT NULL,
+    duplicate_count INTEGER NOT NULL,
+    stop_reason TEXT NOT NULL,
+    completed_at TEXT NOT NULL,
+    PRIMARY KEY (run_id, query)
+);
 """
 
 
