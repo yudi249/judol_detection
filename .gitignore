@@ -44,6 +44,9 @@ docs/research/**/*.pdf
 # Agent-generated working plans and specifications are local session artifacts.
 docs/superpowers/
 
+# Local X scraping notebook contains researcher-managed credentials.
+notebooks/X_scraper.ipynb
+
 # Keep directory placeholders
 !.gitkeep
 
