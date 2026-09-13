@@ -38,11 +38,19 @@ models/final/*
 data/browser-profiles/
 data/raw/x/
 
+# Raw X SearchTimeline captures; import only normalized redacted JSON exports.
+configs/query_x_*.js
+configs/scraping_x/
+configs/x-search-timeline-*.json
+
 # Locally saved research papers; retain Markdown notes and source metadata.
 docs/research/**/*.pdf
 
 # Agent-generated working plans and specifications are local session artifacts.
 docs/superpowers/
+
+# Locally generated Graphify knowledge-graph artifacts.
+graphify-out/
 
 # Local X scraping notebook contains researcher-managed credentials.
 notebooks/X_scraper.ipynb
@@ -84,6 +92,12 @@ apps/browser-extension/test-results/
 .aider*
 .roo/
 .windsurf/
+
+# Keep the repository-owned judol annotation skill versioned.
+!.agents/
+!.agents/skills/
+!.agents/skills/judol-annotation-agent/
+!.agents/skills/judol-annotation-agent/SKILL.md
 
 # Local AI agent harness files
 AGENTS.md
