@@ -1,0 +1,719 @@
+{
+  "project": "judol_detection",
+  "last_updated": "2026-08-18",
+  "rules": {
+    "single_active_feature": true,
+    "passing_requires_evidence": true,
+    "do_not_skip_verification": true
+  },
+  "status_legend": {
+    "not_started": "Work has not begun.",
+    "in_progress": "The feature is the current task.",
+    "blocked": "Work cannot continue until a documented blocker is resolved.",
+    "passing": "Required verification has passed and evidence is recorded."
+  },
+  "features": [
+    {
+      "id": "COL-007",
+      "priority": 2,
+      "area": "dataset-collection",
+      "title": "Build reproducible balanced dataset snapshot",
+      "user_visible_behavior": "Researcher can create a provenance-preserving balanced snapshot with equal positive and negative collection pools for X, YouTube, and Telegram without modifying source databases.",
+      "status": "passing",
+      "verification": [
+        "Run `uv run --no-cache python -m pytest --basetemp=.pytest-tmp tests/unit/test_sample_balanced_dataset.py`.",
+        "Run `uv run --no-cache python scripts/sample_balanced_dataset.py --quota 384 --seed 42 --output-dir data/processed`.",
+        "Verify 2,304 rows, six strata of 384 rows, 1,152 rows per pool, and no duplicate normalized hashes.",
+        "Run `uv run --no-cache python -m pytest --basetemp=.pytest-tmp`.",
+        "Run compileall, `git diff --check`, and `graphify update .`."
+      ],
+      "evidence": [
+        "Added `scripts/sample_balanced_dataset.py` with six canonical source mappings, deterministic sampling seed, per-platform positive/negative conflict removal, quota validation, portable provenance, CSV/Parquet/SQLite/manifest outputs, and an annotation-compatible SQLite table.",
+        "Added unit coverage for six-stratum quotas, conflict exclusion, row-order-independent reproducibility, source annotation summaries, quota-based filenames, and rerun-safe SQLite manifest/output tables.",
+        "Generated `data/processed/dataset_balanced_2304.sqlite`, `dataset_balanced_2304.csv`, `dataset_balanced_2304.parquet`, and `dataset_balanced_2304_manifest.json` from the six current canonical databases using seed 42.",
+        "The generated dataset contains 2,304 rows: 384 per platform/pool stratum, 1,152 positive, 1,152 negative, zero duplicate normalized hashes, and four YouTube conflict hashes removed from both pools.",
+        "Focused sampler tests passed 5 tests; full `uv run --no-cache python -m pytest --basetemp=.pytest-tmp` passed 121 tests after the final annotation-summary test was added.",
+        "`uv run --no-cache python -m compileall -q scripts/sample_balanced_dataset.py tests/unit/test_sample_balanced_dataset.py`, `git diff --check`, `init.ps1`, and `graphify update .` passed; graphify reported 1,591 nodes and 2,745 edges."
+      ],
+      "notes": "positive and negative identify collection pools, not final human labels. Source databases remain the canonical inputs and should not be modified by the sampler."
+    },
+    {
+      "id": "DOC-001",
+      "priority": 2,
+      "area": "documentation",
+      "title": "Dokumentasikan operasi dataset interim",
+      "user_visible_behavior": "Agen dapat menemukan panduan canonical untuk menghitung data X, Telegram, dan YouTube tanpa menjumlahkan database dengan file ekspor atau run yang overlap.",
+      "status": "passing",
+      "verification": [
+        "Run `.\\init.ps1` from PowerShell.",
+        "Run the documented SQLite inspection command.",
+        "Run the documented Telegram overlap command.",
+        "Run `git diff --check`."
+      ],
+      "evidence": [
+        "Added `docs/data-interim.md` with source database selection, counting rules, export duplication rules, SQLite inspection, and Telegram overlap checks.",
+        "Added interim dataset operation rules and the documentation pointer to `AGENTS.md`.",
+        "The documented SQLite inspection and Telegram overlap commands ran successfully against the current interim databases.",
+        "Baseline `init.ps1` verification and `git diff --check` passed."
+      ],
+      "notes": "The guide intentionally documents the procedure rather than storing a snapshot of current record totals."
+    },
+    {
+      "id": "AGENT-002",
+      "priority": 1,
+      "area": "annotation-agent",
+      "title": "Implementasi pipeline CLI anotasi Excel dengan OpenAI-compatible API",
+      "user_visible_behavior": "Peneliti dapat mendeteksi bahasa utama lalu menganotasi teks yang belum berlabel melalui Chat Completions JSON Schema, menandai mayoritas bahasa asing sebagai not_indonesian, melanjutkan proses dari checkpoint, dan menghasilkan workbook baru dengan kolom label.",
+      "status": "passing",
+      "verification": [
+        "Run focused annotation unit and integration tests.",
+        "Run full `uv run --no-cache python -m pytest --basetemp=.pytest-tmp`.",
+        "Run offline fake-provider end-to-end annotation over a temporary workbook.",
+        "Run local HTTP OpenAI-compatible end-to-end annotation over a temporary workbook.",
+        "Run `uv run --no-cache python main.py`."
+      ],
+      "evidence": [
+        "Added typed annotation modules under `src/judol_detection/annotation/` for contracts, Excel loading, state, quota, provider client, and pipeline orchestration.",
+        "Added `scripts/annotate_judol.py` with Excel input/output, `.env` configuration, consent, concurrency, quota preflight, resume, force, and run summary flags.",
+        "Updated `.agents/skills/judol-annotation-agent/SKILL.md` to strict JSON output `{\"label\":\"...\"}` compatible with the Chat Completions JSON Schema.",
+        "Added `docs/annotation-agent-quickstart.md` and OpenAI-compatible variables to `.env.example`.",
+        "Added `openpyxl`, `httpx`, and `python-dotenv` dependencies.",
+        "Added `not_indonesian` as a fourth terminal label; language detection runs before judol classification and mixed text follows the majority language.",
+        "Updated the JSON Schema, parser, cache, checkpoint, pipeline summary, PRD, and quickstart for the fourth label.",
+        "Full `uv run --no-cache python -m pytest --basetemp=.pytest-tmp` passed 88 tests before the language-label regression suite was extended.",
+        "`uv run --no-cache python -m compileall -q src/judol_detection/annotation scripts/annotate_judol.py` passed.",
+        "Local HTTP OpenAI-compatible endpoint integration test passed without external network or API credentials.",
+        "`uv run --no-cache python main.py` passed."
+      ],
+      "notes": "MVP implementation follows `docs/agent-annotation-prd.md`; provider usage should still be piloted with the user's real endpoint before bulk annotation."
+    },
+    {
+      "id": "AGENT-001",
+      "priority": 1,
+      "area": "annotation-agent",
+      "title": "Buat skill anotator promosi judol berbahasa Indonesia",
+      "user_visible_behavior": "Skill system-level menganotasi satu teks berbahasa Indonesia sebagai promosi_judol, bukan_judol, atau perlu_review dan mengembalikan object JSON minimal dengan field label.",
+      "status": "passing",
+      "verification": [
+        "Validasi frontmatter skill dan keberadaan empat label yang diizinkan.",
+        "Validasi aturan output object JSON minimal dengan satu field label tanpa field tambahan, alasan, atau confidence.",
+        "Review manual contoh promosi, hard negative, Unicode obfuscation, kasus ambigu, dan prompt injection.",
+        "Run uv run --no-cache python main.py."
+      ],
+      "evidence": [
+        "Added repository-owned skill at `.agents/skills/judol-annotation-agent/SKILL.md`; the skill content is written in Indonesian and performs language detection before judol classification.",
+        "Skill defines context-sensitive rules from `docs/research/judol-keyword-baseline.md`, Unicode guidance from `docs/unicode-attacks.md`, and the mock predictor boundary from `docs/extension/mock-predictor.md`.",
+        "Skill returns only a strict JSON object containing `promosi_judol`, `bukan_judol`, `perlu_review`, or `not_indonesian` and treats row metadata as irrelevant.",
+        "Added an explicit `.gitignore` exception so the repository-owned skill is versionable without unignoring other local agent artifacts.",
+        "Compacted the skill to 4,670 characters, 624 words, and 120 lines while retaining the classification boundary, Unicode guidance, input safety, and exact-output contract.",
+        "Static contract validation passed: frontmatter, all labels, exact-output rule, prompt-injection rule, and `git diff --check`.",
+        "Baseline `uv run --no-cache python main.py` passed."
+      ],
+      "notes": "Skill contract is consumed by AGENT-002. Excel/JSON adapters, OpenAI-compatible client code, orchestration, and response parsing are tracked separately."
+    },
+    {
+      "id": "EDA-001",
+      "priority": 1,
+      "area": "eda",
+      "title": "Eksplorasi data anotasi (SEMMA Sample + Explore)",
+      "user_visible_behavior": "Notebook 01 menghasilkan statistik dataset, analisis label leakage fitur struktural, keyword target, analisis karakter non-ASCII (kasar vs mencurigakan), bukti kegagalan tokenizer IndoBERT, deep-dive kualitatif, dan keputusan split untuk pipeline adversarial.",
+      "status": "not_started",
+      "verification": [
+        "Run notebooks/01_sample_explore.ipynb end-to-end tanpa error.",
+        "Confirm all 8 artifacts in docs/research/eda-plan.md §6 exist.",
+        "Run uv run --no-cache python main.py (repo tetap sehat)."
+      ],
+      "evidence": [],
+      "notes": "Mengikuti docs/research/eda-plan.md. Engine analisis Unicode: silverspeak (resolved). Tokenizer uji: IndoBERT (akan dijalankan via Colab sesuai keputusan user). Analisis kualitas anotasi / Cohen's Kappa DILUAR scope EDA — sesi khusus. Output keyword & split decision dipakai langsung oleh adversarial-training-plan.md Tahap 1 & 2."
+    },
+    {
+      "id": "COL-002",
+      "priority": 2,
+      "area": "dataset-collection",
+      "title": "Collect bounded X Latest-search samples",
+      "user_visible_behavior": "A persistent local Chromium profile can collect bounded X Latest-search samples, apply shared filters and deduplication, and store X records in a separate SQLite file with the same export schema as Telegram and YouTube.",
+      "status": "passing",
+      "verification": [
+        "Run `uv run --no-cache python -m pytest --basetemp=.pytest-x-final`.",
+        "Run `uv run --no-cache python main.py`.",
+        "Run `uv run --no-cache python scripts/collect_x.py --query-file configs/x_queries.json --dry-run`."
+      ],
+      "evidence": [
+        "Added a pure SearchTimeline parser with a redacted fixture, malformed-entry handling, and per-response post-ID deduplication.",
+        "Added bounded persistent-profile Playwright collection with Latest-search navigation, response observation, gradual scrolling, progress events, and authentication/challenge/no-progress stop states.",
+        "Added X query summary records in the shared SQLite schema and a collector CLI with local raw-payload provenance.",
+        "Added X query registry and operational guide under `docs/collection/x-collector.md`.",
+        "Added `scripts/login_x.py` for researcher-managed persistent-profile login; collection now defaults to no login wait and requires the prepared session.",
+        "Added offline `scripts/import_x_files.py` for manually saved `data = [...]` SearchTimeline files using JSON5 parsing without JavaScript execution; imported records use `x_search_timeline_manual_file` and the shared filters/database.",
+        "`uv run --no-cache python -m pytest --basetemp=.pytest-x-manual-import-final` passed 51 tests, including manual-file parsing and import integration.",
+        "`uv run --no-cache python main.py` printed `Judol Detection monorepo is ready.` and X dry-run printed the configured Latest-search queries without opening Chromium."
+      ],
+      "notes": "Run the first headful pilot manually so the researcher can authenticate in the ignored local profile. Results are bounded Latest-search samples, not a complete X archive."
+    },
+    {
+      "id": "COL-003",
+      "priority": 3,
+      "area": "dataset-collection",
+      "title": "Collect X Latest-search text with Camoufox manual scrolling",
+      "user_visible_behavior": "The researcher can use one persistent Camoufox X profile, scroll Latest-search results manually, and store accepted tweet text incrementally in SQLite without saving full SearchTimeline payloads.",
+      "status": "blocked",
+      "verification": [
+        "Run focused Camoufox parser, collector, CLI, login, and storage tests.",
+        "Run uv run --no-cache python -m pytest --basetemp=.pytest-camoufox-final.",
+        "Run uv run --no-cache python main.py.",
+        "Run collect_x.py --query slot --dry-run without launching a browser.",
+        "Run one live manual pilot with a fresh ignored SQLite database and verify no data.js or raw SearchTimeline dump is created."
+      ],
+      "evidence": [
+        "Camoufox dependency was resolved with Playwright <1.61 compatibility.",
+        "Focused parser, collector, CLI, login, storage, and legacy importer tests passed (17 tests).",
+        "Camoufox collector compileall and manual dry-run passed.",
+        "Added shared Camoufox launch configuration with stable local fingerprint preset, Windows OS target, Indonesian locale, headful mode, and humanized cursor.",
+        "Changed collection navigation from direct search deep-link to /home search-box UI flow followed by Latest-tab selection.",
+        "Full test suite passed 95 tests after the best-practice changes."
+      ],
+      "notes": "Implementation and offline verification are complete, but live Camoufox login and manual pilot remain unresolved. The separate Chrome debugger collector is available as an alternative local collection path. Legacy data = [...] import remains available offline."
+    },
+    {
+      "id": "COL-001",
+      "priority": 1,
+      "area": "dataset-collection",
+      "title": "Build reusable local collection foundation",
+      "user_visible_behavior": "Local collection runs store normalized, deduplicated documents and keyword weak labels in one SQLite database, with CSV and Parquet export.",
+      "status": "passing",
+      "verification": [
+        "Run `uv run --no-cache python -m pytest`.",
+        "Run `uv run --no-cache python scripts/export_dataset.py --database <path> --output-dir <path>`.",
+        "Run `uv run --no-cache python main.py`."
+      ],
+      "evidence": [
+        "Added collection models, deterministic normalization, keyword weak labels, SQLite run tracking, exact normalized-text deduplication, annotation history, and export helpers.",
+        "Added unit and integration tests for normalization, weak labels, storage lifecycle, deduplication, annotations, direct CLI execution, CSV, and Parquet export.",
+        "`uv run --no-cache python -m pytest` passed 8 tests after directing pytest temporary files to a writable project-local base directory.",
+        "Added reusable Jaccard-or-containment deduplication, which drops candidate promotions when a shorter canonical promotion is contained in a longer template with variable trailing usernames; `uv run --no-cache python -m pytest --basetemp=.pytest-containment-final` passed 18 tests.",
+        "Added aggressive shared-prefix deduplication: at least 20 matching initial canonical tokens covering at least 80% of the shorter text. The supplied Telegram template had a 64-token, 90.1% shared prefix and is now rejected; `uv run --no-cache python -m pytest --basetemp=.pytest-prefix-final` passed 20 tests.",
+        "Hardened near-duplicate canonicalization with NFKC, Unicode format-character boundary preservation, bare Telegram URL removal tolerant of invisible characters in every t.me hostname/path position, guarded empty canonical text, counted near-duplicates in collection run statistics, and evidence-gated same-promotion-URL prefix matching for short templates. URL identity preserves ports/path/query semantics, handles malformed candidates, and cleanup snapshots SQLite WAL databases through the backup API. Mathematical Bold template, invisible separators, URL-only variants, candidate-mode filtering, empty documents, short byn88-style templates, generic-URL false positives, WAL snapshots, and duplicate counters are covered by 19 focused regression tests. Full repository verification was started at 146 tests but timed out around 67% without a test failure.",
+        "Added `docs/collection/telegram-collector.md`, covering every Telegram collection option, seed registry format, dry-run, bounded and snowball examples, filtering behavior, and export command; `uv run --no-cache python -m scripts.collect_telegram --seed-file configs/telegram_seeds.json --dry-run` verified the documented command.",
+        "Telegram CLI now accepts `--max-messages-per-channel none` for full accessible history and retries a channel after waiting `FloodWaitError.seconds`; regression coverage passed and `uv run --no-cache python -m pytest --basetemp=.pytest-telegram-full-history-final` passed 22 tests.",
+        "Telegram collection now emits reusable channel progress events and CLI checkpoints through `--progress-every`; `uv run --no-cache python -m pytest --basetemp=.pytest-progress-final` passed 23 tests.",
+        "Added optional `--target-documents-per-channel N` quota. The quota counts inserted rows per channel, reads until quota or channel exhaustion, works with snowball/targeted/incremental/control modes, records config metadata, and rejects conflicts with explicit message limits. Focused collector/CLI verification passed 14 tests."
+      ],
+      "notes": "No network collector is included. `weak_label` is a keyword-derived candidate, not a final human label."
+    },
+    {
+      "id": "EXT-000",
+      "priority": 0,
+      "area": "browser-extension",
+      "title": "Scaffold WXT + React extension frontend",
+      "user_visible_behavior": "JudolLens extension shell loads with a popup, background service worker, and content script entrypoint.",
+      "status": "passing",
+      "verification": [
+        "Run .\\init.ps1 from PowerShell, or ./init.sh from a POSIX shell.",
+        "Run the WXT dev command after scaffold is added.",
+        "Load the extension in a browser and confirm the popup shell renders."
+      ],
+      "evidence": [
+        "User ran `pnpm dev` in `apps/browser-extension`; WXT 0.20.27 started dev server at http://localhost:3000 and built `.output/chrome-mv3-dev`.",
+        "Agent ran `pnpm compile`; TypeScript completed with `tsc --noEmit`.",
+        "Agent ran `pnpm build`; WXT built production chrome-mv3 output successfully."
+      ],
+      "notes": "Follow docs/extension/frontend-roadmap.md Milestone 0."
+    },
+    {
+      "id": "EXT-001",
+      "priority": 1,
+      "area": "browser-extension",
+      "title": "Install Tailwind CSS and shadcn/ui foundation",
+      "user_visible_behavior": "JudolLens extension has Tailwind CSS and selected shadcn/ui components ready for popup, options, logs, manual analysis, and simulation screens.",
+      "status": "passing",
+      "verification": [
+        "Run pnpm compile from apps/browser-extension.",
+        "Run pnpm build from apps/browser-extension.",
+        "Confirm a minimal shadcn/ui component can be imported and rendered in an extension-owned React screen.",
+        "Confirm Tailwind/shadcn styling is not used for third-party page DOM overlays."
+      ],
+      "evidence": [
+        "Installed Tailwind CSS v4, @tailwindcss/vite, shadcn, tw-animate-css, lucide-react, radix-ui, class-variance-authority, clsx, and tailwind-merge.",
+        "Added components.json, src/styles/global.css, src/lib/utils.ts, and selected shadcn/ui components under src/components/ui.",
+        "Updated WXT Vite config with Tailwind plugin and runtime aliases for @/components, @/lib, @/hooks, and @/src.",
+        "Replaced the starter popup with a minimal JudolLens UI foundation proof rendering Button, Badge, Separator, TooltipProvider, and lucide-react icons.",
+        "Run `pnpm compile`; TypeScript completed with `tsc --noEmit`.",
+        "Run `pnpm build`; WXT built production chrome-mv3 output successfully.",
+        "Run `pnpm exec wxt build -m development`; WXT built development chrome-mv3-dev output successfully.",
+        "Inspected development output; bundled CSS contains bg-graphite-950, text-unicode-amber, and JudolLens theme variables, while bundled JS contains JudolLens UI proof text and shadcn component code."
+      ],
+      "notes": "Use Tailwind CSS + shadcn/ui + lucide-react selectively. shadcn CLI does not auto-detect WXT, so this project uses manual shadcn configuration. Bounded `pnpm dev` attempts did not provide reliable captured output in the shell harness; use `pnpm dev` interactively for browser smoke checks."
+    },
+    {
+      "id": "EXT-002",
+      "priority": 2,
+      "area": "browser-extension",
+      "title": "Add shared frontend types",
+      "user_visible_behavior": "Popup, background, content script, storage, and mock predictor share the same prediction and storage contracts.",
+      "status": "passing",
+      "verification": [
+        "Run TypeScript typecheck once extension scaffold exists.",
+        "Confirm shared types match docs/extension/api-contract.md and docs/extension/storage-model.md."
+      ],
+      "evidence": [
+        "Added shared prediction, platform, storage, and message contracts under `apps/browser-extension/src/shared/`.",
+        "Added barrel export at `apps/browser-extension/src/shared/index.ts`.",
+        "Updated TypeScript and WXT/Vite aliases so `@/shared` and `@/shared/*` resolve consistently.",
+        "Added type-only smoke imports in background and content entrypoints.",
+        "Run `pnpm compile`; TypeScript completed with `tsc --noEmit`.",
+        "Run `pnpm build`; WXT built production chrome-mv3 output successfully.",
+        "Run `pnpm exec wxt build -m development`; WXT built development chrome-mv3-dev output successfully.",
+        "Updated API and storage docs with the canonical shared type implementation location."
+      ],
+      "notes": "Follow frontend roadmap Milestone 2. EXT-002 only adds contracts and defaults; storage implementation, mock predictor, scanner, and UI state wiring remain separate milestones."
+    },
+    {
+      "id": "EXT-003",
+      "priority": 3,
+      "area": "browser-extension",
+      "title": "Implement rule-based mock predictor",
+      "user_visible_behavior": "JudolLens can classify plain and Unicode-obfuscated judol text without backend services.",
+      "status": "passing",
+      "verification": [
+        "Run focused tests for plain judol, Unicode-obfuscated judol, non-judol, and false-positive trap cases.",
+        "Confirm output is compatible with docs/extension/api-contract.md."
+      ],
+      "evidence": [
+        "Installed Vitest and added `test` plus `test:run` scripts for the browser extension.",
+        "Added predictor tests covering plain judol, Unicode homoglyph obfuscation, false-positive single keyword, repeated keyword deduplication, batch summary, and empty text.",
+        "Added deterministic rule-based predictor modules under `apps/browser-extension/src/predictor/`.",
+        "Run red `pnpm test:run`; Vitest failed because `./mock-predictor` did not exist yet.",
+        "Run green `pnpm test:run`; Vitest passed 6 tests in 1 file.",
+        "Run `pnpm compile`; TypeScript completed with `tsc --noEmit`.",
+        "Run `pnpm build`; WXT built production chrome-mv3 output successfully.",
+        "Run `pnpm exec wxt build -m development`; WXT built development chrome-mv3-dev output successfully."
+      ],
+      "notes": "Follow docs/extension/mock-predictor.md. EXT-003 adds the predictor baseline only; background integration, storage writes, DOM scanner, and UI state wiring remain separate milestones."
+    },
+    {
+      "id": "EXT-004",
+      "priority": 4,
+      "area": "browser-extension",
+      "title": "Implement storage layer",
+      "user_visible_behavior": "JudolLens stores settings, session stats, bounded detection logs, and manual analysis state.",
+      "status": "passing",
+      "verification": [
+        "Run storage helper tests once available.",
+        "Confirm logs are bounded and sourceUrl respects storeSourceUrl."
+      ],
+      "evidence": [
+        "Added typed storage helpers under `apps/browser-extension/src/storage/` and exported them through `@/storage`.",
+        "Added a dependency-injected `StorageArea` plus WXT local storage adapter using `wxt/utils/storage`.",
+        "Added Vitest coverage for default settings, settings updates, session stats defaults, source URL privacy, bounded newest-first detection logs, clear logs, manual analysis truncation, and manual clear behavior.",
+        "Run red `pnpm test:run`; Vitest failed because `./storage-service` did not exist yet.",
+        "Run green `pnpm test:run`; Vitest passed 11 tests in 2 files.",
+        "Run `pnpm compile`; TypeScript completed with `tsc --noEmit`.",
+        "Run `pnpm build`; WXT built production chrome-mv3 output successfully.",
+        "Run `pnpm exec wxt build -m development`; WXT built development chrome-mv3-dev output successfully."
+      ],
+      "notes": "Follow docs/extension/storage-model.md. Logs are stored newest-first, snippets are bounded to 240 characters, manual input is bounded to 2000 characters, and source URLs are omitted unless `storeSourceUrl` is enabled."
+    },
+    {
+      "id": "EXT-005",
+      "priority": 5,
+      "area": "browser-extension",
+      "title": "Build popup MVP",
+      "user_visible_behavior": "Popup shows JudolLens status, toggles, session evidence counters, recent detection, and navigation links.",
+      "status": "passing",
+      "verification": [
+        "Run the extension dev server.",
+        "Inspect popup visually and compare against docs/extension/ui-screen-plan.md and docs/extension/ui-theme.md."
+      ],
+      "evidence": [
+        "Added pure popup view-model helpers and Vitest coverage under `apps/browser-extension/entrypoints/popup/`.",
+        "Replaced the EXT-001 popup proof with a storage-backed JudolLens control center.",
+        "Popup reads settings, session stats, and newest-first recent logs from `@/storage`.",
+        "Popup toggles page protection, auto blur, and Unicode highlight through `updateExtensionSettings`.",
+        "Logs and Options buttons are visible disabled placeholders until EXT-011.",
+        "Run red `pnpm test:run`; Vitest failed because `./popup-model` did not exist yet.",
+        "Run green `pnpm test:run`; Vitest passed 16 tests in 3 files.",
+        "Run `pnpm compile`; TypeScript completed with `tsc --noEmit`.",
+        "Run `pnpm build`; WXT built production chrome-mv3 output successfully.",
+        "Run `pnpm exec wxt build -m development`; WXT built development chrome-mv3-dev output successfully.",
+        "Added Playwright extension e2e setup and `pnpm test:e2e` for launching the built extension in Chromium.",
+        "Initial e2e caught missing manifest `storage` permission; fixed WXT manifest permissions and reran `pnpm test:e2e` successfully."
+      ],
+      "notes": "Use docs/extension/design-preview.html and design-preview-popup.html as visual references. Popup is storage-backed but not background-live yet; scanner/background integration starts in EXT-006 and EXT-007."
+    },
+    {
+      "id": "EXT-006",
+      "priority": 6,
+      "area": "browser-extension",
+      "title": "Implement content script DOM scanner",
+      "user_visible_behavior": "Content script extracts visible text candidates while avoiding unsafe and editable DOM nodes.",
+      "status": "passing",
+      "verification": [
+        "Run scanner tests once available.",
+        "Confirm simulation page text candidates are extracted without changing the page."
+      ],
+      "evidence": [
+        "Installed `happy-dom` for Vitest DOM scanner tests.",
+        "Added TreeWalker-based scanner helpers under `apps/browser-extension/src/dom/`.",
+        "Scanner extracts visible text candidates, skips unsafe/editable/hidden/short nodes, supports processed-node deduplication, and does not mutate page markup.",
+        "Added typed scan batch request/message helpers compatible with `@/shared` prediction and message contracts.",
+        "Updated content script matches for YouTube, Telegram Web, X/Twitter, localhost, and 127.0.0.1 simulation targets.",
+        "Content script performs an initial scan and sends `judollens:scan-batch` best-effort; sendMessage failures are tolerated until EXT-007.",
+        "Run red `pnpm test:run -- src/dom/dom-scanner.test.ts`; Vitest failed because `./dom-scanner` did not exist yet.",
+        "Run green `pnpm test:run`; Vitest passed 22 tests in 4 files.",
+        "Run `pnpm compile`; TypeScript completed with `tsc --noEmit`.",
+        "Run `pnpm build`; WXT built production chrome-mv3 output successfully.",
+        "Run `pnpm exec wxt build -m development`; WXT built development chrome-mv3-dev output successfully with the existing popup chunk-size warning.",
+        "Run `pnpm test:e2e`; Playwright popup extension smoke still passed."
+      ],
+      "notes": "EXT-006 is extraction-only. It does not run prediction in content script, write storage, apply overlay DOM mutations, or observe dynamic content yet."
+    },
+    {
+      "id": "EXT-007",
+      "priority": 7,
+      "area": "browser-extension",
+      "title": "Add background prediction coordinator",
+      "user_visible_behavior": "Background receives batch messages, runs mock prediction, updates stats/logs, and returns results.",
+      "status": "passing",
+      "verification": [
+        "Run message contract tests once available.",
+        "Confirm a scan produces popup counters and recent logs."
+      ],
+      "evidence": [
+        "Added dependency-injected background coordinator under `apps/browser-extension/src/background/`.",
+        "Coordinator handles `judollens:scan-batch`, runs the mock predictor, updates session stats, appends bounded detection logs, and returns typed batch responses.",
+        "Coordinator also supports get extension state, settings update, and clear logs messages for existing shared contracts.",
+        "Updated `entrypoints/background.ts` to register a runtime message listener and delegate to the coordinator.",
+        "Added Vitest coverage for scan batch prediction/logging, accumulated session stats, and predictor error recording.",
+        "Run red `pnpm test:run -- src/background/background-coordinator.test.ts`; Vitest failed because `./background-coordinator` did not exist yet.",
+        "Run green `pnpm test:run`; Vitest passed 25 tests in 5 files.",
+        "Run `pnpm compile`; TypeScript completed with `tsc --noEmit`.",
+        "Run `pnpm build`; WXT built production chrome-mv3 output successfully.",
+        "Run `pnpm exec wxt build -m development`; WXT built development chrome-mv3-dev output successfully with the existing popup chunk-size warning.",
+        "Run `pnpm test:e2e`; Playwright popup extension smoke still passed."
+      ],
+      "notes": "Content scripts still do not write logs directly. EXT-007 does not apply page overlays; content-script DOM mutation starts in EXT-008."
+    },
+    {
+      "id": "EXT-008",
+      "priority": 8,
+      "area": "browser-extension",
+      "title": "Add on-page overlay",
+      "user_visible_behavior": "Detected judol text is blurred or warned and suspicious Unicode spans are highlighted.",
+      "status": "passing",
+      "verification": [
+        "Open simulation page.",
+        "Confirm detected text shows `Terdeteksi JudolLens` without breaking layout."
+      ],
+      "evidence": [
+        "Added overlay helpers under `apps/browser-extension/src/dom/` for blur, warning, Unicode highlight, label rendering, duplicate prevention, and scoped style injection.",
+        "Added scanner refs so content script can map background prediction results back to original text nodes without sending DOM nodes in prediction requests.",
+        "Added `runJudolLensScanOnce` content flow helper and updated content entrypoint to apply overlays from background scan responses.",
+        "Added Vitest DOM coverage for blur overlays, warning overlays, clean no-op results, Unicode span wrapping, duplicate prevention, style injection, scanner refs, and content scan integration.",
+        "Added Playwright overlay fixture page and e2e coverage that saves `docs/extension/screenshots/ext-008-on-page-overlay.png`.",
+        "Run red `pnpm test:run -- src/dom/overlay.test.ts src/dom/dom-scanner.test.ts`; Vitest failed because overlay and scanner-ref helpers did not exist yet.",
+        "Run red `pnpm test:run -- src/dom/content-scan.test.ts`; Vitest failed because `./content-scan` did not exist yet.",
+        "Run green `pnpm test:run`; Vitest passed 33 tests in 7 files.",
+        "Run `pnpm compile`; TypeScript completed with `tsc --noEmit`.",
+        "Run `pnpm build`; WXT built production chrome-mv3 output successfully.",
+        "Run `pnpm exec wxt build -m development`; WXT built development chrome-mv3-dev output successfully with the existing popup chunk-size warning.",
+        "Run `pnpm test:e2e`; Playwright passed popup and overlay fixture tests and saved EXT-008 screenshot evidence."
+      ],
+      "notes": "EXT-008 uses vanilla DOM wrappers and scoped `judollens-*` CSS only. It does not add MutationObserver or product simulation page behavior yet."
+    },
+    {
+      "id": "EXT-009",
+      "priority": 9,
+      "area": "browser-extension",
+      "title": "Handle dynamic content with MutationObserver",
+      "user_visible_behavior": "JudolLens detects newly inserted feed items after page load.",
+      "status": "passing",
+      "verification": [
+        "Use simulation dynamic insert button.",
+        "Confirm new judol post is scanned and annotated."
+      ],
+      "evidence": [
+        "Added `createDynamicContentObserver` under `apps/browser-extension/src/dom/` with added-node filtering, 150ms debounce, start/stop lifecycle, and JudolLens overlay-node ignores.",
+        "Updated content scan flow with `runJudolLensScanForRoots` so dynamic roots are batched without sending DOM nodes to background.",
+        "Updated content script to run initial scan, then start a debounced MutationObserver using WXT `ctx.setTimeout`.",
+        "Updated Playwright overlay fixture with a dynamic insert button and added e2e coverage that saves `docs/extension/screenshots/ext-009-dynamic-overlay.png`.",
+        "Run red `pnpm test:run -- src/dom/dynamic-observer.test.ts src/dom/content-scan.test.ts`; Vitest failed because `./dynamic-observer` and `runJudolLensScanForRoots` did not exist yet.",
+        "Run green `pnpm test:run`; Vitest passed 38 tests in 8 files.",
+        "Run `pnpm compile`; TypeScript completed with `tsc --noEmit`.",
+        "Run `pnpm build`; WXT built production chrome-mv3 output successfully.",
+        "Run `pnpm exec wxt build -m development`; WXT built development chrome-mv3-dev output successfully with the existing popup chunk-size warning.",
+        "Run `pnpm test:e2e`; Playwright passed popup, static overlay, and dynamic overlay tests."
+      ],
+      "notes": "Debounced dynamic scan handles added nodes only. Product simulation page remains EXT-010; EXT-009 uses a fixture page for screenshot evidence."
+    },
+    {
+      "id": "EXT-010",
+      "priority": 10,
+      "area": "browser-extension",
+      "title": "Build simulation page",
+      "user_visible_behavior": "A local simulation page provides normal, judol, Unicode-obfuscated, mixed, and dynamic test scenarios.",
+      "status": "passing",
+      "verification": [
+        "Open simulation page locally.",
+        "Confirm MVP 1 flow works from simulation page to popup/log evidence."
+      ],
+      "evidence": [
+        "Added local HTTP simulation page under `apps/browser-extension/simulation/index.html` with clean, false-positive, plain judol, Unicode-obfuscated, mixed feed, and dynamic insertion scenarios.",
+        "Added `apps/browser-extension/scripts/serve-simulation.mjs` and `pnpm simulation` to serve the page at `http://127.0.0.1:4173/` without new dependencies.",
+        "Refactored Playwright e2e helpers into `tests/e2e/test-utils.ts` and added `tests/e2e/simulation.spec.ts`.",
+        "Run red `pnpm exec playwright test tests/e2e/simulation.spec.ts`; Playwright failed because `simulation/index.html` did not exist yet.",
+        "Run focused green `pnpm exec playwright test tests/e2e/simulation.spec.ts`; simulation e2e passed.",
+        "Run `pnpm test:run`; Vitest passed 38 tests in 8 files.",
+        "Run `pnpm compile`; TypeScript completed with `tsc --noEmit`.",
+        "Run `pnpm build`; WXT built production chrome-mv3 output successfully.",
+        "Run `pnpm exec wxt build -m development`; WXT built development chrome-mv3-dev output successfully with the existing popup chunk-size warning.",
+        "Run `pnpm test:e2e`; Playwright passed popup, overlay fixture, dynamic fixture, and simulation page tests.",
+        "Run `node --check scripts/serve-simulation.mjs`; Node reported no syntax errors.",
+        "Saved screenshot evidence to `docs/extension/screenshots/ext-010-simulation-page.png`."
+      ],
+      "notes": "MVP 1 is complete after EXT-010. Simulation is a local HTTP target page, not a chrome-extension page, so it exercises the real content-script scan and overlay flow."
+    },
+    {
+      "id": "EXT-011",
+      "priority": 11,
+      "area": "browser-extension",
+      "title": "Build options and log review pages",
+      "user_visible_behavior": "User can configure JudolLens and review detection logs with filters and evidence details.",
+      "status": "passing",
+      "verification": [
+        "Open options page and change settings.",
+        "Open log page and confirm filters, detail panel, and clear logs behavior."
+      ],
+      "evidence": [
+        "Added WXT React options entrypoint under `apps/browser-extension/entrypoints/options/` with full-page settings UI.",
+        "Added WXT React logs entrypoint under `apps/browser-extension/entrypoints/logs/` with summary cards, filters, table, detail panel, and clear logs behavior.",
+        "Added pure options/logs view-model helpers and Vitest coverage for formatting, filtering, reset defaults, and settings patch behavior.",
+        "Updated popup Logs and Options buttons from disabled placeholders to active navigation using `browser.tabs.create` and `browser.runtime.openOptionsPage()`.",
+        "Run red focused `pnpm test:run -- entrypoints/options/options-model.test.ts entrypoints/logs/logs-model.test.ts`; Vitest failed because model modules did not exist yet.",
+        "Run green focused `pnpm test:run -- entrypoints/options/options-model.test.ts entrypoints/logs/logs-model.test.ts`; model tests passed.",
+        "Run `Get-Content -Path feature_list.json | ConvertFrom-Json | Out-Null`; JSON parsed successfully.",
+        "Run `pnpm test:run`; Vitest passed 44 tests in 10 files.",
+        "Run `pnpm compile`; TypeScript completed with `tsc --noEmit`.",
+        "Run `pnpm build`; WXT built production chrome-mv3 output with options and logs pages.",
+        "Run `pnpm exec wxt build -m development`; WXT built development chrome-mv3-dev output with options and logs pages.",
+        "Run `pnpm test:e2e`; Playwright passed 6 tests covering options persistence, logs review/clear, popup navigation, overlay, dynamic content, and simulation.",
+        "Saved screenshot evidence to `docs/extension/screenshots/ext-011-options-page.png` and `docs/extension/screenshots/ext-011-log-review-page.png`."
+      ],
+      "notes": "MVP 2 options and logs are implemented as extension-owned React pages. FastAPI health check and manual analysis remain later milestones."
+    },
+    {
+      "id": "EXT-012",
+      "priority": 12,
+      "area": "browser-extension",
+      "title": "Build manual analysis flow",
+      "user_visible_behavior": "User can analyze selected or pasted text and save the result to logs.",
+      "status": "passing",
+      "verification": [
+        "Select text and open manual analysis via context menu.",
+        "Paste text manually and confirm matched terms and Unicode breakdown appear."
+      ],
+      "evidence": [
+        "Added WXT React manual analysis entrypoint under `apps/browser-extension/entrypoints/manual-analysis/`.",
+        "Added manual analysis view-model tests for empty state, judol result formatting, Unicode evidence, non-judol saveability, confidence, and risk labels.",
+        "Extended shared message contracts with get manual analysis, analyze manual text, and save manual analysis responses.",
+        "Extended background coordinator to analyze manual text with the mock predictor, persist `manual:lastAnalysis`, and append manual logs for both `judol` and `non_judol` results.",
+        "Added context menu helper and registered `Analyze with JudolLens` from the background entrypoint.",
+        "Updated WXT manifest permissions with `contextMenus` and `tabs`.",
+        "Added popup Analyze navigation to `manual-analysis.html`.",
+        "Updated Logs table/model to display prediction label so manual `NON_JUDOL` evidence is visible.",
+        "Run red focused `pnpm test:run -- entrypoints/manual-analysis/manual-analysis-model.test.ts src/background/background-coordinator.test.ts src/background/manual-context-menu.test.ts`; Vitest failed because manual model/context-menu modules and background handlers did not exist yet.",
+        "Run green focused `pnpm test:run -- entrypoints/manual-analysis/manual-analysis-model.test.ts src/background/background-coordinator.test.ts src/background/manual-context-menu.test.ts`; focused tests passed.",
+        "Run `Get-Content -Path feature_list.json | ConvertFrom-Json | Out-Null`; JSON parsed successfully.",
+        "Run `pnpm test:run`; Vitest passed 54 tests in 12 files.",
+        "Run `pnpm compile`; TypeScript completed with `tsc --noEmit`.",
+        "Run `pnpm build`; WXT built production chrome-mv3 output with `manual-analysis.html`.",
+        "Run `pnpm exec wxt build -m development`; WXT built development chrome-mv3-dev output with `manual-analysis.html`.",
+        "Run focused `pnpm exec playwright test tests/e2e/manual-analysis.spec.ts`; Playwright manual analysis e2e passed.",
+        "Run `pnpm test:e2e`; Playwright passed 7 tests covering manual analysis, options/logs, popup navigation, overlays, dynamic content, and simulation.",
+        "Saved screenshot evidence to `docs/extension/screenshots/ext-012-manual-analysis-page.png`."
+      ],
+      "notes": "MVP 2 manual analysis is implemented. Manual saves intentionally include clean/non-judol samples for research evidence. Copy result JSON remains post-MVP."
+    },
+    {
+      "id": "EXT-013",
+      "priority": 13,
+      "area": "browser-extension",
+      "title": "Add floating selection analyze trigger",
+      "user_visible_behavior": "When users select text on supported pages, JudolLens shows a small floating Analyze button that opens Manual Analysis with the selected text.",
+      "status": "passing",
+      "verification": [
+        "Select text on a simulation/target page and confirm a floating JudolLens Analyze button appears.",
+        "Click the floating button and confirm manual analysis opens with the selected text prefilled."
+      ],
+      "evidence": [
+        "Added vanilla DOM selection trigger under `apps/browser-extension/src/dom/selection-analyze-trigger.ts` with scoped `judollens-selection-*` styling.",
+        "Wired content script selection trigger to `judollens:open-manual-analysis` so selected text opens `manual-analysis.html` through the background coordinator.",
+        "Extended shared message contracts and background coordinator tests for selected-text manual analysis opening.",
+        "Added Vitest coverage for showing the floating button, invoking analyze on click, hiding empty selections, and cleanup on stop.",
+        "Added Playwright e2e coverage that selects clean fixture text, sees the floating button, clicks it, and verifies Manual Analysis is prefilled.",
+        "Run red focused `pnpm test:run -- src/dom/selection-analyze-trigger.test.ts src/background/background-coordinator.test.ts`; Vitest failed because selection trigger module and open manual message handler did not exist yet.",
+        "Run green focused `pnpm test:run -- src/dom/selection-analyze-trigger.test.ts src/background/background-coordinator.test.ts`; focused tests passed.",
+        "Run `Get-Content -Path feature_list.json | ConvertFrom-Json | Out-Null`; JSON parsed successfully.",
+        "Run `pnpm test:run`; Vitest passed 58 tests in 13 files.",
+        "Run `pnpm compile`; TypeScript completed with `tsc --noEmit`.",
+        "Run `pnpm build`; WXT built production chrome-mv3 output successfully.",
+        "Run `pnpm exec wxt build -m development`; WXT built development chrome-mv3-dev output successfully.",
+        "Run focused `pnpm exec playwright test tests/e2e/selection-trigger.spec.ts`; Playwright selection trigger e2e passed.",
+        "Run `pnpm test:e2e`; Playwright passed 8 tests covering manual analysis, options/logs, popup, overlays, selection trigger, dynamic content, and simulation.",
+        "Saved screenshot evidence to `docs/extension/screenshots/ext-013-selection-floating-trigger.png`."
+      ],
+      "notes": "This complements the context menu because some web apps override right-click menus. Floating trigger stays vanilla DOM and scoped CSS."
+    },
+    {
+      "id": "EXT-014",
+      "priority": 14,
+      "area": "browser-extension",
+      "title": "Make options settings control live protection",
+      "user_visible_behavior": "Options settings control automatic simulation scanning, prediction threshold, overlay behavior, Unicode highlighting, and log persistence.",
+      "status": "passing",
+      "verification": [
+        "Change Options settings and open the simulation page.",
+        "Confirm platform scope, threshold, censor mode, Unicode highlight, max logs, source URL storage, and bounded evidence settings affect live behavior."
+      ],
+      "evidence": [
+        "Run red focused `pnpm test:run -- src/dom/content-scan.test.ts src/dom/overlay.test.ts src/background/background-coordinator.test.ts`; Vitest failed because runtime settings were not yet applied to content scan, overlay action resolution, or background logging.",
+        "Content scan now fetches `judollens:get-extension-state` before initial and dynamic scans, enforces platform scope, and sends settings threshold/mode in scan batch requests.",
+        "Overlay helpers now respect `censorMode`, `autoBlur`, and `highlightUnicode`, including `judollens-hide` for hide mode and no overlay for `none` mode.",
+        "Background coordinator now uses stored settings as the source of truth for automatic scan threshold/mode and skips detection log append when `storeBoundedEvidence=false` while still updating session stats.",
+        "Added Playwright coverage in `tests/e2e/options-live-settings.spec.ts` for platform disable, low threshold, Unicode highlight off, warn mode, max logs, source URL storage, and bounded evidence off.",
+        "Run focused green `pnpm test:run -- src/dom/content-scan.test.ts src/dom/overlay.test.ts src/background/background-coordinator.test.ts`; Vitest passed 68 tests in 13 files.",
+        "Run `Get-Content -Path feature_list.json | ConvertFrom-Json | Out-Null`; JSON parsed successfully.",
+        "Run `pnpm test:run`; Vitest passed 68 tests in 13 files.",
+        "Run `pnpm compile`; TypeScript completed with `tsc --noEmit`.",
+        "Run `pnpm build`; WXT built production chrome-mv3 output successfully.",
+        "Run `pnpm exec wxt build -m development`; WXT built development chrome-mv3-dev output successfully.",
+        "Run focused `pnpm exec playwright test tests/e2e/options-live-settings.spec.ts`; Playwright passed and saved EXT-014 screenshot evidence.",
+        "Run `pnpm test:e2e`; Playwright passed 9 tests covering manual analysis, live options settings, options/logs, popup, overlays, dynamic content, selection trigger, and simulation.",
+        "Saved screenshot evidence to `docs/extension/screenshots/ext-014-options-live-settings.png`."
+      ],
+      "notes": "This is a hardening milestone after EXT-013 so the existing Options UI becomes operational in the automatic protection flow, not only persistent."
+    },
+    {
+      "id": "COL-005",
+      "priority": 3,
+      "area": "dataset-collection",
+      "title": "Collect YouTube Data API samples for 2024-2026",
+      "user_visible_behavior": "Researcher can collect bounded YouTube video metadata from all enabled query-registry terms for calendar years 2024 through 2026 and store the filtered results in the canonical YouTube API SQLite run.",
+      "status": "passing",
+      "verification": [
+        "Run `.\\init.ps1` from PowerShell.",
+        "Run `uv run --no-cache python scripts/collect_youtube_api.py --query-file configs/youtube_queries.json --max-pages 8 --published-after 2024-01-01T00:00:00Z --published-before 2027-01-01T00:00:00Z --region-code ID --database data/interim/youtube_api_user_run.sqlite`.",
+        "Validate `run_id=2` in `data/interim/youtube_api_user_run.sqlite` for status, count, and publication-year distribution.",
+        "Run focused YouTube collector tests."
+      ],
+      "evidence": [
+        "Used the 12 enabled queries from `configs/youtube_queries.json` with the official YouTube Data API v3 collector; no `yt-dlp` collection path was used.",
+        "The completed run stored 862 unique filtered documents in `run_id=2`: 214 from 2024, 386 from 2025, and 262 from 2026.",
+        "The run publication range is `2024-01-08T12:13:30Z` through `2026-08-16T09:00:09Z`; raw API items were written under `data/raw/youtube-api/`.",
+        "Focused YouTube tests passed 4 tests and the repository startup baseline passed."
+      ],
+      "notes": "This is a bounded search sample. The target SQLite also contains 186 documents from an earlier API run; use collection_runs.run_id=2 when reporting this 2024-2026 collection."
+    },
+    {
+      "id": "COL-004",
+      "priority": 3,
+      "area": "dataset-collection",
+      "title": "Collect X SearchTimeline samples with separate Chrome extension",
+      "user_visible_behavior": "Researcher can monitor SearchTimeline responses on a selected X tab and export normalized tweet fields as JSON for the existing Python collection pipeline.",
+      "status": "in_progress",
+      "verification": [
+        "Run pnpm test from apps/x-graphql-collector.",
+        "Run pnpm compile from apps/x-graphql-collector.",
+        "Run pnpm build from apps/x-graphql-collector.",
+        "Run focused Python importer tests and import a normalized JSON fixture with candidate-only and strict language filtering.",
+        "Run one live manual pilot on a researcher-managed X tab and verify exported JSON contains no credential or full GraphQL payload."
+      ],
+      "evidence": [
+        "Added independent WXT app under apps/x-graphql-collector with a separate manifest and .output/chrome-mv3 build path.",
+        "Added redacted SearchTimeline parser coverage for note_tweet text, nested tweet results, malformed entries, duplicate IDs, and rotating operation IDs.",
+        "Added chrome.debugger monitor that filters SearchTimeline Latest responses and reads response bodies after Network.loadingFinished.",
+        "Added bounded local state and popup controls for start, stop, clear, and JSON export.",
+        "Added normalized JSON loader to scripts/import_x_files.py with source_type=x_graphql_extension_json and the existing candidate/language/deduplication pipeline.",
+        "Extension pnpm test passed 8 tests; pnpm compile passed; pnpm build passed.",
+        "Python importer focused tests passed 7 tests; normalized fixture import stored 1 candidate and rejected 1 non-candidate.",
+        "Added bounded auto-scroll controller with 2-second interval, 70% viewport steps, 500-step limit, bottom/no-progress/error/detach stop conditions, popup controls, and Runtime.evaluate debugger integration.",
+        "Auto-scroll regression tests passed as part of the extension suite; production build passed after the auto-scroll changes.",
+        "Changed auto-scroll to jump directly to height - viewport and wait for X infinite-scroll height growth before jumping to the next bottom position; regression suite passed.",
+        "Documented normalized JSON import from Downloads or configs into existing data/interim/x.sqlite, including required --input flag, dry-run, backup, counters, provenance, and verification query.",
+        "Added popup dropdown for Terbaru/Latest and Populer/Top, persisted active search_product, exact product filtering, status display, tests, and documentation.",
+        "Fixed the dropdown polling regression: user-selected Top mode is now protected from stale Latest state during 750ms refresh polling; extension suite passed 18 tests.",
+        "Fixed popup query input synchronization so user edits are not overwritten by 750ms state polling; added regression tests and documented Stop/Edit/Start workflow for changing the exact rawQuery filter.",
+        "Fixed debugger lifecycle cleanup: Clear and failed Network.enable now clear pending response bodies and detach chrome.debugger; focused monitor regressions passed 7 tests and TypeScript compilation passed."
+      ],
+      "notes": "Offline implementation and verification are complete, including direct-bottom infinite-scroll behavior and debugger lifecycle cleanup. Live X behavior, virtualized scroll-container compatibility, response-body availability, and account/session policy remain to be validated manually."
+    },
+    {
+      "id": "COL-006",
+      "priority": 2,
+      "area": "dataset-collection",
+      "title": "Collect natural and hard negative control samples",
+      "user_visible_behavior": "Researcher can collect separate natural and hard-negative control samples from X, YouTube, and public Telegram channels without changing the existing positive query and seed registries.",
+      "status": "passing",
+      "verification": [
+        "Run focused control-mode and storage regression tests.",
+        "Run uv run --no-cache python -m pytest --basetemp=.pytest-tmp.",
+        "Run dry-runs for all three positive and negative/control registries.",
+        "Run uv run --no-cache python -m compileall -q for changed Python modules.",
+        "Run .\\init.ps1 from PowerShell."
+      ],
+      "evidence": [
+        "Added configs/x_negative_queries.json and configs/youtube_negative_queries.json with natural and hard query groups.",
+        "Added configs/telegram_control_seeds.json with public news, business-news, and legal-news control seeds.",
+        "Added --sample-mode candidate|control to X, YouTube metadata/API, and Telegram collectors; candidate remains the default.",
+        "Control mode stores weak_label=0 natural documents and keyword-bearing hard negatives for manual annotation, while disabling Telegram control-channel snowballing.",
+        "Added focused regression coverage for config dry-runs, control storage, and Telegram control collection.",
+        "Full pytest passed 115 tests; compileall, config JSON validation, dry-runs, and init.ps1 baseline passed."
+        ,"Live Telegram control pilot completed in `data/interim/telegram_negative.sqlite`: discovery inserted 386 documents and targeted inserted 71 documents, for 457 deduplicated documents across two collection runs."
+      ],
+      "notes": "Control samples are not final negative labels. weak_label remains keyword evidence; every stored control document must be manually annotated and ambiguous cases retained for review."
+    },
+    {
+      "id": "COL-008",
+      "priority": 2,
+      "area": "dataset-collection",
+      "title": "Create cleaned copies of existing collection databases",
+      "user_visible_behavior": "Researcher can create a new SQLite database from an existing collection database with near-duplicate documents removed, while preserving the source database, collection provenance, and annotations.",
+      "status": "passing",
+      "verification": [
+        "Run focused deduplicate database and collection deduplication tests.",
+        "Run uv run --no-cache python -m pytest --basetemp=.pytest-tmp.",
+        "Run uv run --no-cache python -m compileall -q scripts/deduplicate_database.py tests/integration/test_deduplicate_database.py.",
+        "Run scripts/deduplicate_database.py --help.",
+        "Run a real cleanup copy with threshold 0.75 and verify source preservation, row counts, collection runs, and annotation integrity."
+      ],
+      "evidence": [
+        "Added scripts/deduplicate_database.py with read-only source inspection, separate output validation, SQLite copy, existing near-duplicate policy, canonical record retention, and annotation reassignment.",
+        "Added tests/integration/test_deduplicate_database.py covering source preservation, cleanup counts, annotation reassignment, collection-run preservation, and same-path rejection.",
+        "Documented the command in docs/collection/telegram-collector.md.",
+        "Focused cleanup and deduplication tests passed 6 tests; full pytest passed 130 tests.",
+        "Real cleanup of telegram_full_history.sqlite at threshold 0.75 created telegram_full_history_dedup075.sqlite with 854 documents from 869 and 15 removed near-duplicates; source remained 869 documents and output had no orphan annotations."
+      ],
+      "notes": "The command does not overwrite existing output files. The first document by document_id is retained as canonical; audit the generated copy before annotation or export."
+    },
+    {
+      "id": "COL-009",
+      "priority": 2,
+      "area": "dataset-collection",
+      "title": "Create reproducible combined Excel sheet sample",
+      "user_visible_behavior": "Researcher can randomly sample up to 400 rows from every sheet in the processed Excel dataset and receive one provenance-preserving combined CSV.",
+      "status": "passing",
+      "verification": [
+        "Run focused Excel sampler tests.",
+        "Run `uv run --no-cache python -m compileall -q scripts/sample_excel_sheets.py tests/unit/test_sample_excel_sheets.py`.",
+        "Run `uv run --no-cache python scripts/sample_excel_sheets.py --input data/processed/dataset.xlsx --output data/processed/dataset_sampled_2384.csv --n-per-sheet 400 --seed 42`.",
+        "Verify 2,384 CSV rows, five sheets with 400 rows, and x_negatif with 384 rows.",
+        "Run the full pytest suite, baseline `main.py`, and `graphify update .`."
+      ],
+      "evidence": [
+        "Added `scripts/sample_excel_sheets.py` with seed-42 default sampling, blank-row filtering, source_sheet provenance, union headers, parameter validation, and atomic CSV output.",
+        "Added 11 focused tests covering normal sampling, short sheets, reproducibility, invalid parameters, reserved provenance header, failure-path output preservation, missing input, union headers, Unicode, and CLI output.",
+        "The current workbook produced `dataset_sampled_2384.csv` with 2,384 rows: tele_positif=400, x_negatif=384, yt_negatif=400, yt_positif=400, tele_negatif=400, and x_positif=400."
+      ],
+      "notes": "The generated CSV is a local ignored artifact. pool or weak labels in the source workbook remain provenance/features, not final human ground truth."
+    }
+  ]
+}
