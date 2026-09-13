@@ -33,6 +33,54 @@ def test_collector_follows_evidence_gated_depth_one_channel(tmp_path) -> None:
     assert summary.stored_documents == 2
 
 
+class QuotaClient:
+    def __init__(self, messages: list[FakeMessage]) -> None:
+        self.messages = messages
+        self.read = 0
+
+    async def iter_messages(self, username: str, limit: int | None):
+        for message in self.messages:
+            self.read += 1
+            yield message
+
+
+def test_collector_stops_channel_after_inserted_document_quota(tmp_path) -> None:
+    storage = CollectionStorage(tmp_path / "quota.sqlite")
+    run_id = storage.start_run("telegram", "telegram_snowball", "seed")
+    client = QuotaClient(
+        [
+            FakeMessage("slot gacor alpha", 1),
+            FakeMessage("slot gacor beta", 2),
+            FakeMessage("slot gacor gamma", 3),
+        ]
+    )
+
+    summary = asyncio.run(
+        TelegramSnowballCollector(client, max_messages_per_channel=None).collect_async(
+            ["seed"], storage, run_id, target_documents_per_channel=2
+        )
+    )
+
+    assert client.read == 2
+    assert summary.stored_documents == 2
+
+
+def test_collector_moves_on_when_channel_ends_before_quota(tmp_path) -> None:
+    storage = CollectionStorage(tmp_path / "quota-short.sqlite")
+    run_id = storage.start_run("telegram", "telegram_snowball", "seed")
+    client = QuotaClient([FakeMessage("slot gacor alpha", 1)])
+
+    summary = asyncio.run(
+        TelegramSnowballCollector(client, max_messages_per_channel=None).collect_async(
+            ["seed"], storage, run_id, target_documents_per_channel=2
+        )
+    )
+
+    assert client.read == 1
+    assert summary.processed_channels == 1
+    assert summary.stored_documents == 1
+
+
 class FloodThenSuccessClient:
     def __init__(self) -> None:
         self.calls = 0
@@ -108,3 +156,41 @@ def test_targeted_mode_uses_server_search_and_records_channel_cursor(tmp_path) -
     assert [call[1]["search"] for call in client.calls] == ["slot gacor", "bonus deposit"]
     assert any(event.query == "slot gacor" for event in events)
     assert storage.get_telegram_channel_state("seed")["last_message_id"] == 9
+
+
+def test_control_collection_keeps_natural_negative_messages(tmp_path) -> None:
+    class NeutralClient:
+        async def iter_messages(self, username: str, limit: int):
+            yield FakeMessage("Berita olahraga hari ini", 10)
+
+    storage = CollectionStorage(tmp_path / "control.sqlite", sample_mode="control")
+    run_id = storage.start_run("telegram", "telegram_control", "control")
+    summary = asyncio.run(
+        TelegramSnowballCollector(NeutralClient(), max_messages_per_channel=10).collect_async(
+            ["control"], storage, run_id
+        )
+    )
+
+    assert summary.stored_documents == 1
+    assert storage.connection.execute("SELECT weak_label FROM documents").fetchone()[0] == 0
+
+
+def test_control_collection_does_not_snowball_from_evidence_bearing_messages(tmp_path) -> None:
+    class EvidenceClient:
+        async def iter_messages(self, username: str, limit: int):
+            messages = {
+                "control": [FakeMessage("Berita penindakan judi https://t.me/anotherchannel", 10)],
+                "anotherchannel": [FakeMessage("Berita lanjutan", 11)],
+            }
+            for message in messages[username]:
+                yield message
+
+    storage = CollectionStorage(tmp_path / "control-evidence.sqlite", sample_mode="control")
+    run_id = storage.start_run("telegram", "telegram_control", "control")
+    summary = asyncio.run(
+        TelegramSnowballCollector(EvidenceClient(), max_messages_per_channel=10).collect_async(
+            ["control"], storage, run_id, sample_mode="control"
+        )
+    )
+
+    assert summary.processed_channels == 1

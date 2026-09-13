@@ -30,6 +30,7 @@ class CollectedDocument:
     published_at: str | None = None
     language_hint: str | None = None
     raw_payload_path: str | None = None
+    sample_type: str | None = None
 
 
 @dataclass(frozen=True)

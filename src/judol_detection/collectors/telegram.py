@@ -3,7 +3,7 @@
 import asyncio
 from dataclasses import dataclass
 import re
-from typing import Callable
+from typing import Callable, Mapping
 
 from telethon.errors import FloodWaitError
 
@@ -79,6 +79,7 @@ class TelegramCollectionProgress:
     error_summary: str | None = None
     query: str | None = None
     available_total: int | None = None
+    target_documents_per_channel: int | None = None
 
 
 class TelegramSnowballCollector:
@@ -97,9 +98,17 @@ class TelegramSnowballCollector:
         on_progress: Callable[[TelegramCollectionProgress], None] | None = None,
         mode: str = "discovery",
         target_queries: tuple[str, ...] = (),
+        sample_mode: str = "candidate",
+        sample_types: Mapping[str, str] | None = None,
+        target_documents_per_channel: int | None = None,
     ) -> TelegramCollectionSummary:
         if progress_every < 1:
             raise ValueError("progress_every must be at least 1")
+        if sample_mode not in {"candidate", "control"}:
+            raise ValueError("sample_mode must be 'candidate' or 'control'")
+        if target_documents_per_channel is not None and target_documents_per_channel < 1:
+            raise ValueError("target_documents_per_channel must be positive")
+        sample_types = sample_types or {}
 
         def emit(stage: str, *, wait_seconds: int | None = None, error_summary: str | None = None, query: str | None = None, available_total: int | None = None) -> None:
             if on_progress is not None:
@@ -107,6 +116,7 @@ class TelegramSnowballCollector:
                     TelegramCollectionProgress(
                         stage, processed, self.max_channels, item.username, messages_read,
                         inserted, non_candidates, duplicates, len(queue), wait_seconds, error_summary, query, available_total,
+                        target_documents_per_channel,
                     )
                 )
 
@@ -141,7 +151,16 @@ class TelegramSnowballCollector:
                         text = getattr(message, "message", "") or ""
                         normalized = normalize_document_text(text)
                         weak = classify_weak_label(normalized.normalized_text)
-                        result = storage.store_document(run_id, CollectedDocument("telegram", "public_channel_api", text, source_item_id=f"{item.username}:{getattr(message, 'id', '')}"))
+                        result = storage.store_document(
+                            run_id,
+                            CollectedDocument(
+                                "telegram",
+                                "public_channel_api",
+                                text,
+                                source_item_id=f"{item.username}:{getattr(message, 'id', '')}",
+                                sample_type=sample_types.get(item.username),
+                            ),
+                        )
                         stored += int(result.inserted)
                         messages_read += 1
                         newest_message_id = max(newest_message_id, getattr(message, "id", 0))
@@ -149,10 +168,15 @@ class TelegramSnowballCollector:
                         non_candidates += int(result.skip_reason == "non_candidate")
                         duplicates += int(result.skip_reason in {"exact_duplicate", "near_duplicate"})
                         evidence = bool(weak.matched_keywords or normalized.unicode_flags or "t.me/" in text.lower())
-                        for candidate in extract_public_channel_candidates(text, has_evidence=evidence):
-                            queue.enqueue(candidate, depth=item.depth + 1, found_from=item.username, evidence=weak.reason)
+                        if sample_mode == "candidate":
+                            for candidate in extract_public_channel_candidates(text, has_evidence=evidence):
+                                queue.enqueue(candidate, depth=item.depth + 1, found_from=item.username, evidence=weak.reason)
                         if messages_read % progress_every == 0:
                             emit("checkpoint")
+                        if target_documents_per_channel is not None and inserted >= target_documents_per_channel:
+                            break
+                     if target_documents_per_channel is not None and inserted >= target_documents_per_channel:
+                         break
                     storage.record_telegram_channel_result(run_id, item.username, mode, query=None, messages_read=messages_read, inserted_count=inserted, duplicate_count=duplicates, last_message_id=newest_message_id)
                     emit("channel_completed")
                     break

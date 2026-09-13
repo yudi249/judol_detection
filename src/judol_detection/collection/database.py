@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS documents (
     matched_keywords TEXT NOT NULL,
     weak_label INTEGER NOT NULL CHECK(weak_label IN (0, 1)),
     weak_label_reason TEXT NOT NULL,
-    raw_payload_path TEXT
+    raw_payload_path TEXT,
+    sample_type TEXT
 );
 CREATE TABLE IF NOT EXISTS annotations (
     annotation_id INTEGER PRIMARY KEY,
@@ -84,4 +85,8 @@ def connect(database_path: Path) -> sqlite3.Connection:
     connection = sqlite3.connect(database_path)
     connection.row_factory = sqlite3.Row
     connection.executescript(SCHEMA)
+    columns = {row["name"] for row in connection.execute("PRAGMA table_info(documents)")}
+    if "sample_type" not in columns:
+        connection.execute("ALTER TABLE documents ADD COLUMN sample_type TEXT")
+        connection.commit()
     return connection

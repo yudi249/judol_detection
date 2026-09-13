@@ -1,15 +1,25 @@
 {
   "version": 1,
   "seeds": [
-    {"username": "NewEraForAll", "group": "candidate", "enabled": true},
-    {"username": "markleekpop", "group": "candidate", "enabled": true},
-    {"username": "sumberdanna", "group": "candidate", "enabled": true},
-    {"username": "busanslotofficial", "group": "candidate", "enabled": true},
-    {"username": "LEGACYNIIHBOS", "group": "candidate", "enabled": true},
-    {"username": "CravingHeatPublic", "group": "candidate", "enabled": true},
-    {"username": "skizofernia_area", "group": "candidate", "enabled": true},
-    {"username": "Indochek", "group": "candidate", "enabled": true},
-    {"username": "thenineee", "group": "candidate", "enabled": true},
-    {"username": "METAPPH1", "group": "candidate", "enabled": true}
+    { "username": "SITUS_INDOBETfECXA", "group": "candidate", "enabled": false },
+    { "username": "SITUSs_LINKsfewv", "group": "candidate", "enabled": false },
+    { "username": "NewEraForAll", "group": "candidate", "enabled": false },
+    { "username": "markleekpop", "group": "candidate", "enabled": false },
+    { "username": "sumberdanna", "group": "candidate", "enabled": false },
+    { "username": "busanslotofficial", "group": "candidate", "enabled": false },
+    { "username": "LEGACYNIIHBOS", "group": "candidate", "enabled": false },
+    { "username": "CravingHeatPublic", "group": "candidate", "enabled": false },
+    { "username": "skizofernia_area", "group": "candidate", "enabled": false },
+    { "username": "Indochek", "group": "candidate", "enabled": false },
+    { "username": "thenineee", "group": "candidate", "enabled": false },
+    { "username": "METAPPH1", "group": "candidate", "enabled": false },
+    { "username": "bebastautan1", "group": "candidate", "enabled": true },
+    { "username": "tongkronganmafiatelegram", "group": "candidate", "enabled": false },
+    { "username": "AREADISKUSIPARLAY2", "group": "candidate", "enabled": true },
+    { "username": "GRUB_CUAN_TELEGRAM", "group": "candidate", "enabled": false },
+    { "username": "sloters_mania_jackpot", "group": "candidate", "enabled": false },
+    { "username": "mabar55fivecuanvip", "group": "candidate", "enabled": false },
+    { "username": "natanihhhh", "group": "candidate", "enabled": false },
+    { "username": "asupnmanjaa", "group": "candidate", "enabled": false }
   ]
 }

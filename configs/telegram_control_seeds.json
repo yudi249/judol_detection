@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "sample_mode": "control",
+  "seeds": [
+    {
+      "username": "kompascom",
+      "group": "control",
+      "sample_type": "natural",
+      "topic": "news",
+      "enabled": true,
+      "evidence": "Public Indonesian news channel preview verified"
+    },
+    {
+      "username": "CNBCIndonesia",
+      "group": "control",
+      "sample_type": "natural",
+      "topic": "business-news",
+      "enabled": true,
+      "evidence": "Public Indonesian business-news channel preview verified"
+    },
+    {
+      "username": "bbcindonesia",
+      "group": "control",
+      "sample_type": "natural",
+      "topic": "news",
+      "enabled": true,
+      "evidence": "Public Indonesian news channel preview verified"
+    },
+    {
+      "username": "hukumonline",
+      "group": "control",
+      "sample_type": "hard",
+      "topic": "law",
+      "enabled": true,
+      "evidence": "Public legal-news channel preview verified; suitable for judi-related non-promotional discussion"
+    }
+  ]
+}

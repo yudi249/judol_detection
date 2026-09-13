@@ -1,20 +1,87 @@
 """Reusable near-duplicate comparison for collected text."""
 
 import re
+import unicodedata
+from urllib.parse import urlsplit
 
-_URL = re.compile(r"https?://\S+|www\.\S+", re.IGNORECASE)
+from .keywords import classify_weak_label
+
+_URL = re.compile(
+    r"https?://\S+|www\.\S+|(?<![\w.])t\x00*\.\x00*m\x00*e\x00*/\S+",
+    re.IGNORECASE,
+)
 _MENTION = re.compile(r"@[A-Za-z0-9_]+")
 _NUMBER = re.compile(r"\b\d+(?:[.,]\d+)?%?\b")
 _TOKEN = re.compile(r"[a-z]{3,}")
 DEFAULT_CONTAINMENT_THRESHOLD = 0.90
 DEFAULT_SHARED_PREFIX_MINIMUM_TOKENS = 20
 DEFAULT_SHARED_PREFIX_RATIO = 0.80
+DEFAULT_SHARED_URL_PREFIX_MINIMUM_TOKENS = 8
+_PROMOTIONAL_STRONG_TERMS = frozenset(
+    {
+        "slot gacor",
+        "slot online",
+        "togel online",
+        "casino online",
+        "gacor",
+        "maxwin",
+        "jackpot",
+        "freebet",
+        "scatter",
+        "pragmatic",
+        "pg soft",
+        "higgs domino",
+        "jepe",
+    }
+)
+
+
+def _canonical_urls(text: str) -> frozenset[str]:
+    value = unicodedata.normalize("NFKC", text or "")
+    value = "".join(
+        "\x00" if unicodedata.category(character) == "Cf" else character
+        for character in value
+    )
+    urls: set[str] = set()
+    for match in _URL.findall(value):
+        candidate = match.replace("\x00", "").rstrip(".,;:!?)]}")
+        if candidate.lower().startswith("t.me/"):
+            candidate = f"https://{candidate}"
+        elif candidate.lower().startswith("www."):
+            candidate = f"https://{candidate}"
+        try:
+            parsed = urlsplit(candidate)
+            port = parsed.port
+        except ValueError:
+            continue
+        if not parsed.hostname:
+            continue
+        host = parsed.hostname.lower()
+        if ":" in host:
+            host = f"[{host}]"
+        host = f"{host}:{port}" if port is not None else host
+        path = parsed.path.rstrip("/")
+        urls.add(f"{host}{path}?{parsed.query}" if parsed.query else f"{host}{path}")
+    return frozenset(urls)
+
+
+def _has_promotion_evidence(text: str) -> bool:
+    value = unicodedata.normalize("NFKC", text or "")
+    value = "".join(" " if unicodedata.category(character) == "Cf" else character for character in value)
+    result = classify_weak_label(value)
+    return result.label == 1 and bool(set(result.matched_keywords) & _PROMOTIONAL_STRONG_TERMS)
 
 
 def canonicalize_for_deduplication(text: str) -> str:
-    value = _URL.sub(" ", (text or "").lower())
+    value = unicodedata.normalize("NFKC", text or "").lower()
+    value = "".join(
+        "\x00" if unicodedata.category(character) == "Cf" else character
+        for character in value
+    )
+    value = _URL.sub(" ", value)
     value = _MENTION.sub(" ", value)
     value = _NUMBER.sub(" ", value)
+    value = value.replace("\x00", " ")
     return " ".join(_TOKEN.findall(value))
 
 
@@ -60,12 +127,19 @@ def is_near_duplicate(
 ) -> bool:
     canonical_left = canonicalize_for_deduplication(left)
     canonical_right = canonicalize_for_deduplication(right)
+    if not canonical_left or not canonical_right:
+        return False
     shared_prefix_tokens, prefix_ratio = shared_prefix_similarity(left, right)
+    shared_promotion_url = bool(_canonical_urls(left) & _canonical_urls(right)) and _has_promotion_evidence(left) and _has_promotion_evidence(right)
     return (
         jaccard_similarity(canonical_left, canonical_right) >= threshold
         or containment_similarity(left, right) >= containment_threshold
         or (
             shared_prefix_tokens >= shared_prefix_minimum_tokens
             and prefix_ratio >= shared_prefix_ratio
+        )
+        or (
+            shared_promotion_url
+            and shared_prefix_tokens >= DEFAULT_SHARED_URL_PREFIX_MINIMUM_TOKENS
         )
     )

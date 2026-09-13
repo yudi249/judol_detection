@@ -11,12 +11,33 @@ from .normalizer import normalize_document_text
 from .deduplication import is_near_duplicate
 
 
+def _merge_sample_types(existing: str | None, incoming: str) -> str:
+    values = {
+        value
+        for value in (existing or "").split("|")
+        if value
+    }
+    values.add(incoming)
+    return "|".join(value for value in ("natural", "hard") if value in values)
+
+
 class CollectionStorage:
-    def __init__(self, database_path: Path, *, candidate_only: bool = False, near_duplicate_threshold: float | None = None, language_filter: str = "off") -> None:
+    def __init__(
+        self,
+        database_path: Path,
+        *,
+        candidate_only: bool = False,
+        near_duplicate_threshold: float | None = None,
+        language_filter: str = "off",
+        sample_mode: str | None = None,
+    ) -> None:
         if language_filter not in {"off", "strict"}:
             raise ValueError("language_filter must be 'off' or 'strict'")
+        if sample_mode not in {None, "candidate", "control"}:
+            raise ValueError("sample_mode must be 'candidate', 'control', or None")
         self.connection = connect(database_path)
-        self.candidate_only = candidate_only
+        self.sample_mode = sample_mode
+        self.candidate_only = sample_mode == "candidate" or (candidate_only and sample_mode != "control")
         self.near_duplicate_threshold = near_duplicate_threshold
         self.language_filter = language_filter
 
@@ -31,16 +52,38 @@ class CollectionStorage:
         return int(cursor.lastrowid)
 
     def store_document(self, run_id: int, document: CollectedDocument) -> StoredDocument:
+        if document.sample_type not in {None, "natural", "hard"}:
+            raise ValueError("sample_type must be 'natural', 'hard', or None")
         if self.language_filter == "strict" and document.language_hint == "non_id":
             return StoredDocument(False, None, 0, "non_indonesian")
         normalized = normalize_document_text(document.text_raw)
+        if not normalized.normalized_text:
+            return StoredDocument(False, None, 0, "empty_text")
         weak_label = classify_weak_label(normalized.normalized_text)
         if self.candidate_only and weak_label.label == 0:
             return StoredDocument(False, None, weak_label.label, "non_candidate")
         if self.near_duplicate_threshold is not None:
-            existing = self.connection.execute("SELECT text_raw FROM documents").fetchall()
-            if any(is_near_duplicate(document.text_raw, row["text_raw"], threshold=self.near_duplicate_threshold) for row in existing):
-                return StoredDocument(False, None, weak_label.label, "near_duplicate")
+            existing = self.connection.execute(
+                "SELECT document_id, text_raw, sample_type FROM documents"
+            ).fetchall()
+            for row in existing:
+                if is_near_duplicate(
+                    document.text_raw,
+                    row["text_raw"],
+                    threshold=self.near_duplicate_threshold,
+                ):
+                    if document.sample_type is not None:
+                        with self.connection:
+                            self.connection.execute(
+                                "UPDATE documents SET sample_type = ? WHERE document_id = ?",
+                                (_merge_sample_types(row["sample_type"], document.sample_type), row["document_id"]),
+                            )
+                    with self.connection:
+                        self.connection.execute(
+                            "UPDATE collection_runs SET fetched_count = fetched_count + 1, duplicate_count = duplicate_count + 1 WHERE run_id = ?",
+                            (run_id,),
+                        )
+                    return StoredDocument(False, None, weak_label.label, "near_duplicate")
         source_item_id_hash = (
             hashlib.sha256(document.source_item_id.encode("utf-8")).hexdigest()
             if document.source_item_id
@@ -52,8 +95,8 @@ class CollectionStorage:
                     run_id, platform, source_type, source_item_id_hash, source_url, published_at,
                     collected_at, text_raw, text_normalized, text_hash_raw, text_hash_normalized,
                     language_hint, unicode_obfuscation_flags, matched_keywords, weak_label,
-                    weak_label_reason, raw_payload_path
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    weak_label_reason, raw_payload_path, sample_type
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     run_id, document.platform, document.source_type, source_item_id_hash,
                     document.source_url, document.published_at, utc_now_iso(), normalized.raw_text,
@@ -61,6 +104,7 @@ class CollectionStorage:
                     document.language_hint, "|".join(normalized.unicode_flags),
                     "|".join(weak_label.matched_keywords), weak_label.label, weak_label.reason,
                     document.raw_payload_path,
+                    document.sample_type,
                 ),
             )
             if cursor.rowcount:
@@ -69,6 +113,16 @@ class CollectionStorage:
                     (run_id,),
                 )
                 return StoredDocument(True, int(cursor.lastrowid), weak_label.label)
+            if document.sample_type is not None:
+                existing_row = self.connection.execute(
+                    "SELECT sample_type FROM documents WHERE text_hash_normalized = ?",
+                    (normalized.normalized_hash,),
+                ).fetchone()
+                if existing_row is not None:
+                    self.connection.execute(
+                        "UPDATE documents SET sample_type = ? WHERE text_hash_normalized = ?",
+                        (_merge_sample_types(existing_row["sample_type"], document.sample_type), normalized.normalized_hash),
+                    )
             self.connection.execute(
                 "UPDATE collection_runs SET fetched_count = fetched_count + 1, duplicate_count = duplicate_count + 1 WHERE run_id = ?",
                 (run_id,),

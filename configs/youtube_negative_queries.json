@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "sample_mode": "control",
+  "queries": [
+    {
+      "query": "berita olahraga Indonesia",
+      "sample_type": "natural",
+      "enabled": true,
+      "evidence": "Neutral public-interest videos for natural negative sampling"
+    },
+    {
+      "query": "tutorial teknologi Indonesia",
+      "sample_type": "natural",
+      "enabled": true,
+      "evidence": "Neutral technology videos for natural negative sampling"
+    },
+    {
+      "query": "edukasi matematika Indonesia",
+      "sample_type": "natural",
+      "enabled": true,
+      "evidence": "Neutral education videos for natural negative sampling"
+    },
+    {
+      "query": "resep masakan Indonesia",
+      "sample_type": "natural",
+      "enabled": true,
+      "evidence": "Neutral lifestyle videos for natural negative sampling"
+    },
+    {
+      "query": "review otomotif Indonesia",
+      "sample_type": "natural",
+      "enabled": true,
+      "evidence": "Neutral automotive videos for natural negative sampling"
+    },
+    {
+      "query": "\"slot waktu\"",
+      "sample_type": "hard",
+      "enabled": true,
+      "evidence": "Ambiguous slot context; requires manual annotation"
+    },
+    {
+      "query": "\"bonus karyawan\"",
+      "sample_type": "hard",
+      "enabled": true,
+      "evidence": "Ambiguous bonus context; requires manual annotation"
+    },
+    {
+      "query": "\"deposit rumah\"",
+      "sample_type": "hard",
+      "enabled": true,
+      "evidence": "Ambiguous deposit context; requires manual annotation"
+    },
+    {
+      "query": "berita penindakan judi online",
+      "sample_type": "hard",
+      "enabled": true,
+      "evidence": "Judi-related reporting without an invitation to participate"
+    },
+    {
+      "query": "bahaya judi online",
+      "sample_type": "hard",
+      "enabled": true,
+      "evidence": "Prevention/education videos; requires manual annotation"
+    }
+  ]
+}
