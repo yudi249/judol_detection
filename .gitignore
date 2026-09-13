@@ -43,6 +43,9 @@ configs/query_x_*.js
 configs/scraping_x/
 configs/x-search-timeline-*.json
 
+# Local backup of the versioned Telegram seed registry.
+configs/telegram_seeds copy.json
+
 # Locally saved research papers; retain Markdown notes and source metadata.
 docs/research/**/*.pdf
 
