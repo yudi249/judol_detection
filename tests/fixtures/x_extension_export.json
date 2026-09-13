@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "source": "x_search_timeline",
+  "query": "slot gacor",
+  "collected_at": "2026-08-16T00:00:00+00:00",
+  "items": [
+    {
+      "source_item_id": "9001",
+      "text_raw": "bonus slot gacor malam ini",
+      "source_url": "https://x.com/i/web/status/9001",
+      "published_at": "Wed Jan 01 00:00:00 +0000 2025"
+    },
+    {
+      "source_item_id": "9002",
+      "text_raw": "pengumuman umum tanpa kata target",
+      "source_url": "https://x.com/i/web/status/9002"
+    }
+  ]
+}

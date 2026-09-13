@@ -1,7 +1,8 @@
 import json
+import threading
 from pathlib import Path
 
-from judol_detection.collectors.x import XPlaywrightCollector, XSearchTimelineParser
+from judol_detection.collectors.x import XCamoufoxCollector, XSearchTimelineParser
 
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "x_search_timeline.json"
@@ -28,6 +29,41 @@ def test_parser_accepts_manual_file_source_type() -> None:
     assert documents[0].source_type == "x_search_timeline_manual_file"
 
 
+def test_parser_prefers_long_note_text() -> None:
+    payload = {
+        "data": {"search_by_raw_query": {"search_timeline": {"timeline": {"instructions": [{
+            "entries": [{
+                "entryId": "tweet-123",
+                "content": {"itemContent": {"tweet_results": {"result": {
+                    "legacy": {"id_str": "123", "full_text": "short legacy text"},
+                    "note_tweet": {"note_tweet_results": {"result": {"text": "long note text"}}},
+                }}}},
+            }]
+        }]}}}}}
+
+    documents = XSearchTimelineParser().parse_response(payload, query="slot")
+
+    assert documents[0].source_item_id == "123"
+    assert documents[0].text_raw == "long note text"
+
+
+def test_parser_unwraps_nested_tweet_result() -> None:
+    payload = {
+        "data": {"search_by_raw_query": {"search_timeline": {"timeline": {"instructions": [{
+            "entries": [{
+                "entryId": "tweet-456",
+                "content": {"itemContent": {"tweet_results": {"result": {
+                    "tweet": {"legacy": {"id_str": "456", "full_text": "nested tweet text"}},
+                }}}},
+            }]
+        }]}}}}}
+
+    documents = XSearchTimelineParser().parse_response(payload, query="slot")
+
+    assert documents[0].source_item_id == "456"
+    assert documents[0].text_raw == "nested tweet text"
+
+
 def test_parser_ignores_cursor_and_malformed_entries() -> None:
     payload = {
         "data": {"search_by_raw_query": {"search_timeline": {"timeline": {"instructions": [
@@ -51,99 +87,222 @@ def test_parser_deduplicates_post_ids_within_one_response() -> None:
     assert [document.source_item_id for document in documents] == ["2077347454761177169"]
 
 
-class FakeMouse:
-    def __init__(self) -> None:
-        self.scrolls = 0
-
-    def wheel(self, _x: int, _y: int) -> None:
-        self.scrolls += 1
-
-
-class FakePage:
-    def __init__(self, *, url: str = "https://x.com/search?q=slot&f=live", payloads=(), login_completes_after_waits: int | None = None, redirect_first_navigation_to_login: bool = False) -> None:
+class ManualFakePage:
+    def __init__(self, *, url: str = "https://x.com/search?q=slot&f=live", responses=(), stop_event=None, content_text: str = "", latest_link=None, role_link=None, search_input=None) -> None:
         self.url = url
-        self.mouse = FakeMouse()
         self.handlers = {}
-        self.payloads = list(payloads)
-        self.login_completes_after_waits = login_completes_after_waits
+        self.responses = list(responses)
+        self.stop_event = stop_event
+        self.content_text = content_text
+        self.latest_link = latest_link
+        self.role_link = role_link
+        self.search_input = search_input
         self.wait_calls = 0
         self.gotos = []
-        self.redirect_first_navigation_to_login = redirect_first_navigation_to_login
 
     def on(self, name: str, handler) -> None:
         self.handlers[name] = handler
 
     def goto(self, url: str, **_kwargs) -> None:
         self.gotos.append(url)
-        self.url = "https://x.com/i/flow/login" if self.redirect_first_navigation_to_login and len(self.gotos) == 1 else url
+        self.url = url
 
     def wait_for_timeout(self, _milliseconds: int) -> None:
         self.wait_calls += 1
-        if self.login_completes_after_waits == self.wait_calls:
-            self.url = "https://x.com/home"
-        if self.payloads and "response" in self.handlers:
-            self.handlers["response"](FakeResponse(self.payloads.pop(0)))
+        if self.responses and "response" in self.handlers:
+            for response in self.responses:
+                self.handlers["response"](response)
+            self.responses.clear()
+        if self.stop_event is not None:
+            self.stop_event.set()
+        return None
+
+    def content(self) -> str:
+        return self.content_text
+
+    def locator(self, _selector: str):
+        return self.latest_link
+
+    def get_by_role(self, role: str, name: str, exact: bool = False):
+        if role == "link" and name == "Terbaru" and exact:
+            return self.role_link
+        return None
+
+    def get_by_placeholder(self, _placeholder: str):
+        return self.search_input
+
+    def get_by_test_id(self, _test_id: str):
         return None
 
 
-class FakeResponse:
-    url = "https://x.com/i/api/graphql/example/SearchTimeline"
+class FakeLatestLink:
+    def __init__(self) -> None:
+        self.clicked = False
+        self.waited = False
 
-    def __init__(self, payload) -> None:
+    @property
+    def first(self):
+        return self
+
+    def count(self) -> int:
+        return 1
+
+    def wait_for(self, **_kwargs) -> None:
+        self.waited = True
+
+    def click(self, **_kwargs) -> None:
+        self.clicked = True
+
+
+class FakeSearchInput:
+    def __init__(self) -> None:
+        self.filled = None
+        self.pressed = None
+        self.waited = False
+
+    @property
+    def first(self):
+        return self
+
+    def count(self) -> int:
+        return 1
+
+    def wait_for(self, **_kwargs) -> None:
+        self.waited = True
+
+    def fill(self, value: str) -> None:
+        self.filled = value
+
+    def press(self, value: str) -> None:
+        self.pressed = value
+
+
+def test_collector_searches_from_home_through_x_ui() -> None:
+    search_input = FakeSearchInput()
+    page = ManualFakePage(search_input=search_input)
+
+    XCamoufoxCollector._open_search_ui(page, "situs slot gacor")
+
+    assert page.gotos == ["https://x.com/home"]
+    assert search_input.filled == "situs slot gacor"
+    assert search_input.pressed == "Enter"
+    assert search_input.waited is True
+
+
+class FakeResponse:
+    def __init__(self, url: str, status: int, payload=None, error: Exception | None = None) -> None:
+        self.url = url
+        self.status = status
         self.payload = payload
+        self.error = error
 
     def json(self):
+        if self.error is not None:
+            raise self.error
         return self.payload
 
 
-def test_collector_stops_after_configured_no_progress_scrolls() -> None:
-    page = FakePage()
-    collector = XPlaywrightCollector(max_posts=20, max_scrolls=10, no_progress_limit=2)
+def test_manual_collector_emits_only_successful_search_timeline_documents() -> None:
+    payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    stop_event = threading.Event()
+    page = ManualFakePage(
+        responses=[
+            FakeResponse("https://x.com/i/api/graphql/example/Other", 200, payload),
+            FakeResponse("https://x.com/i/api/graphql/example/SearchTimeline", 204, payload),
+            FakeResponse("https://x.com/i/api/graphql/example/SearchTimeline", 200, payload),
+        ],
+        stop_event=stop_event,
+    )
+    emitted = []
+    collector = XCamoufoxCollector(poll_interval_ms=1)
 
-    summary = collector.collect_page(page, query="slot")
+    summary = collector.collect_page(
+        page, query="slot", on_document=emitted.append, stop_event=stop_event
+    )
 
-    assert summary.stop_reason == "no_new_posts"
-    assert summary.scrolls == 2
-    assert page.mouse.scrolls == 2
+    assert [item.source_item_id for item in emitted] == ["2077347454761177169"]
+    assert summary.responses_seen == 1
+    assert summary.posts_observed == 1
+    assert summary.search_errors == 1
+    assert summary.last_search_error_status == 204
+    assert summary.stop_reason == "manual_stop"
 
 
-def test_collector_reports_authentication_required_without_scrolling() -> None:
-    page = FakePage(url="https://x.com/i/flow/login")
+def test_manual_collector_selects_latest_tab_after_navigation() -> None:
+    stop_event = threading.Event()
+    latest_link = FakeLatestLink()
+    page = ManualFakePage(stop_event=stop_event, latest_link=latest_link)
 
-    summary = XPlaywrightCollector(max_posts=20, max_scrolls=10, no_progress_limit=2).collect_page(
-        page, query="slot", wait_for_manual_login=False
+    XCamoufoxCollector(poll_interval_ms=1).collect_page(
+        page,
+        query="slot",
+        on_document=lambda _document: None,
+        stop_event=stop_event,
+        search_url="https://x.com/search?q=slot&src=typed_query&f=live",
+    )
+
+    assert latest_link.clicked is True
+    assert latest_link.waited is True
+
+
+def test_manual_collector_falls_back_to_latest_link_role() -> None:
+    stop_event = threading.Event()
+    latest_link = FakeLatestLink()
+    page = ManualFakePage(stop_event=stop_event, role_link=latest_link)
+
+    XCamoufoxCollector(poll_interval_ms=1).collect_page(
+        page,
+        query="slot",
+        on_document=lambda _document: None,
+        stop_event=stop_event,
+        search_url="https://x.com/search?q=slot&src=typed_query&f=live",
+    )
+
+    assert latest_link.clicked is True
+
+
+def test_manual_collector_stops_on_authentication_redirect() -> None:
+    stop_event = threading.Event()
+    page = ManualFakePage(url="https://x.com/i/flow/login")
+    ready = []
+
+    summary = XCamoufoxCollector(poll_interval_ms=1).collect_page(
+        page,
+        query="slot",
+        on_document=lambda _document: None,
+        stop_event=stop_event,
+        on_ready=lambda: ready.append(True),
     )
 
     assert summary.stop_reason == "authentication_required"
-    assert summary.scrolls == 0
+    assert ready == []
+
+def test_manual_collector_stops_on_access_challenge() -> None:
+    stop_event = threading.Event()
+    page = ManualFakePage(content_text="captcha challenge")
+
+    summary = XCamoufoxCollector(poll_interval_ms=1).collect_page(
+        page, query="slot", on_document=lambda _document: None, stop_event=stop_event
+    )
+
+    assert summary.stop_reason == "access_challenge"
 
 
-def test_collector_waits_for_manual_login_before_scrolling() -> None:
-    page = FakePage(url="https://x.com/i/flow/login", login_completes_after_waits=1)
-    collector = XPlaywrightCollector(max_posts=20, max_scrolls=10, no_progress_limit=2, login_timeout_seconds=2)
+def test_manual_collector_counts_malformed_search_timeline_response() -> None:
+    stop_event = threading.Event()
+    page = ManualFakePage(
+        responses=[FakeResponse(
+            "https://x.com/i/api/graphql/example/SearchTimeline",
+            200,
+            error=ValueError("not json"),
+        )],
+        stop_event=stop_event,
+    )
 
-    summary = collector.collect_page(page, query="slot")
+    summary = XCamoufoxCollector(poll_interval_ms=1).collect_page(
+        page, query="slot", on_document=lambda _document: None, stop_event=stop_event
+    )
 
-    assert summary.stop_reason == "no_new_posts"
-    assert summary.scrolls == 2
-    assert page.wait_calls >= 3
-
-
-def test_collector_returns_to_latest_search_after_manual_login_redirect() -> None:
-    search_url = "https://x.com/search?q=slot&f=live"
-    page = FakePage(login_completes_after_waits=1, redirect_first_navigation_to_login=True)
-    collector = XPlaywrightCollector(max_posts=20, max_scrolls=2, no_progress_limit=2, login_timeout_seconds=2)
-
-    collector.collect_page(page, query="slot", search_url=search_url)
-
-    assert page.gotos == [search_url, search_url]
-
-
-def test_collector_attaches_raw_payload_path_from_callback() -> None:
-    payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
-    page = FakePage(payloads=[payload])
-    collector = XPlaywrightCollector(max_posts=1, max_scrolls=2, no_progress_limit=2)
-
-    summary = collector.collect_page(page, query="slot", on_payload=lambda _payload: "data/raw/x/example.json")
-
-    assert summary.documents[0].raw_payload_path == "data/raw/x/example.json"
+    assert summary.responses_seen == 0
+    assert summary.parse_errors == 1
+    assert summary.stop_reason == "manual_stop"
