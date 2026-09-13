@@ -1,0 +1,64 @@
+{
+  "data": {
+    "search_by_raw_query": {
+      "search_timeline": {
+        "timeline": {
+          "instructions": [
+            {
+              "type": "TimelineAddEntries",
+              "entries": [
+                {
+                  "entryId": "tweet-1001",
+                  "content": {
+                    "itemContent": {
+                      "tweet_results": {
+                        "result": {
+                          "rest_id": "1001",
+                          "legacy": {
+                            "full_text": "teks legacy pendek",
+                            "created_at": "Wed Jan 01 00:00:00 +0000 2025"
+                          },
+                          "note_tweet": {
+                            "note_tweet_results": {
+                              "result": {
+                                "text": "teks note tweet slot gacor"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "entryId": "tweet-1002",
+                  "content": {
+                    "itemContent": {
+                      "tweet_results": {
+                        "result": {
+                          "tweet": {
+                            "legacy": {
+                              "id_str": "1002",
+                              "full_text": "bonus deposit malam ini"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "entryId": "cursor-bottom-1",
+                  "content": {
+                    "cursorType": "Bottom",
+                    "value": "redacted-cursor"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}

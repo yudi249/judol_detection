@@ -1,0 +1,37 @@
+:root {
+  color: #e8edf5;
+  background: #10151d;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 360px; }
+button, input { font: inherit; }
+.panel { padding: 18px; width: 380px; }
+.eyebrow { color: #f0a64b; font-size: 10px; letter-spacing: .16em; margin: 0 0 6px; }
+h1 { font-size: 20px; margin: 0; }
+.muted, .notice { color: #8d9aaa; font-size: 12px; line-height: 1.5; }
+.field { color: #aeb8c7; display: grid; font-size: 12px; gap: 6px; margin: 18px 0 12px; }
+input, select { background: #171e28; border: 1px solid #2d3948; border-radius: 7px; color: #f4f6fa; padding: 9px 10px; }
+.status-card { align-items: center; background: #171e28; border: 1px solid #2d3948; border-radius: 9px; display: flex; gap: 10px; padding: 12px; }
+.status-card div:last-child { display: grid; gap: 3px; }
+.status-card span { color: #8d9aaa; font-size: 11px; }
+.status-dot { background: #697687; border-radius: 50%; height: 9px; width: 9px; }
+.status-monitoring { background: #5ad18a; box-shadow: 0 0 9px #5ad18a; }
+.status-error, .status-detached { background: #e26d6d; }
+.metrics { display: grid; gap: 8px; grid-template-columns: repeat(4, 1fr); margin: 12px 0; }
+.metric { background: #171e28; border-radius: 7px; padding: 9px 5px; text-align: center; }
+.metric strong, .metric span { display: block; }
+.metric strong { font-size: 17px; }
+.metric span { color: #8d9aaa; font-size: 10px; margin-top: 3px; }
+.auto-scroll-card { background: #171e28; border: 1px solid #2d3948; border-radius: 7px; display: flex; justify-content: space-between; margin: 12px 0; padding: 10px; }
+.auto-scroll-card div:first-child { display: grid; gap: 3px; }
+.auto-scroll-card span, .auto-scroll-progress { color: #8d9aaa; font-size: 10px; }
+.auto-scroll-progress { align-self: center; max-width: 190px; text-align: right; }
+.actions { display: grid; gap: 7px; grid-template-columns: 1fr 1fr; }
+button { background: #232d3b; border: 1px solid #344356; border-radius: 7px; color: #e8edf5; cursor: pointer; padding: 9px; }
+button.primary { background: #c9792e; border-color: #e99a4d; color: #17110a; font-weight: 700; }
+button.quiet { color: #9aa8b8; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+.error { background: #351f25; border: 1px solid #71343b; border-radius: 7px; color: #ffabb0; font-size: 11px; line-height: 1.4; padding: 8px; }
+.notice { border-top: 1px solid #293442; margin: 16px 0 0; padding-top: 12px; }

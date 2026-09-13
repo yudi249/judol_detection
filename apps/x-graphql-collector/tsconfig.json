@@ -1,0 +1,16 @@
+{
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "baseUrl": ".",
+    "jsx": "react-jsx",
+    "resolveJsonModule": true,
+    "paths": {
+      "@/*": ["./*"],
+      "@/graphql/*": ["./src/graphql/*"],
+      "@/monitor/*": ["./src/monitor/*"],
+      "@/shared/*": ["./src/shared/*"],
+      "@/storage/*": ["./src/storage/*"]
+    }
+  }
+}
