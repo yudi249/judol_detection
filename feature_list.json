@@ -1,6 +1,6 @@
 {
   "project": "judol_detection",
-  "last_updated": "2026-08-18",
+ "last_updated": "2026-09-16",
   "rules": {
     "single_active_feature": true,
     "passing_requires_evidence": true,
@@ -614,6 +614,37 @@
       "notes": "This is a bounded search sample. The target SQLite also contains 186 documents from an earlier API run; use collection_runs.run_id=2 when reporting this 2024-2026 collection."
     },
     {
+      "id": "API-001",
+      "priority": 1,
+      "area": "api-inference",
+      "title": "Serve contract-first local IndoBERT inference to the browser extension",
+      "user_visible_behavior": "The extension background can use the canonical OpenAPI client to send manual and DOM batch predictions to a local FastAPI server backed by a manifest-validated clean IndoBERT artifact.",
+      "status": "blocked",
+      "verification": [
+        "Package `models/checkpoints/indobert-sampled-baseline-v0.1.0` from the imported Colab output and preserve sampled-dataset provenance.",
+        "Launch the local FastAPI process and verify `/health`, `/predict`, and `/predict/batch` with the sampled artifact.",
+        "Run the built extension in API mode against that server; verify overlay, non-mock metadata, latency, and 503 error state, then capture the API-mode screenshot.",
+        "Train a final artifact from human-annotated `dataset_final.xlsx` before declaring API-001 passing."
+      ],
+      "evidence": [
+        "Added `contracts/judollens-api.openapi.yaml` as the canonical OpenAPI 3.1 source for health, single, and batch prediction semantics.",
+        "Implemented manifest validation, raw-text-only Unicode evidence, local artifact loading, FastAPI validation/privacy boundaries, and generated extension client transport through the background service worker.",
+        "Pinned the upstream IndoBERT revision `c2cd0b51ddce6580eb35263b39b0a1e5fb0a39e2` during training and in artifact provenance; source URL validation now matches the OpenAPI URI contract.",
+        "Packaged the imported 474.7 MiB Colab model as `models/checkpoints/indobert-sampled-baseline-v0.1.0`, with API binary labels and explicit sampled-notebook provenance.",
+        "Real FastAPI `/health`, `/predict`, and `/predict/batch` verification passed using the sampled artifact; responses reported `is_mock: false` and preserved item IDs.",
+        "Packager, manifest, inference, and API suite passed: 24 tests.",
+        "Removed invalid port-bearing local content-script match patterns after Chrome rejected `http://localhost:*/*`; generated-manifest validation, extension compile, 78 unit tests, and 9 Playwright tests passed.",
+        "X/Twitter blur now attaches one backdrop-filter overlay to the closest `[data-testid=\"tweet\"]` article; two detected tweet text nodes produce one full-tweet overlay with a readable label. Targeted regression, 79 extension unit tests, TypeScript compilation, and 10 Playwright tests passed; screenshot: `docs/extension/screenshots/ext-015-x-tweet-overlay.png`.",
+        "The sampled 474.7 MiB local artifact served `/health`, `/predict`, and `/predict/batch` on a dedicated loopback port; the real model returned `is_mock: false`, preserved item IDs, and measured 3,689 ms for the two-item direct batch.",
+        "Loaded-extension API-mode validation passed against the sampled artifact: simulation judol text was blurred, extension state retained non-mock model metadata and positive API latency, a controlled 503 was retried four times then exposed as `api_prediction_failed`, and screenshot evidence is `docs/extension/screenshots/ext-017-api-mode-sampled-artifact.png`.",
+        "`uv run --no-cache python -m pytest --basetemp=.pytest-tmp apps/api/tests` passed 13 tests; `pnpm check:api`, `pnpm compile`, and `pnpm test:run` (94 tests) passed.",
+        "ONNX INT8 rollout verification: all 300 validation-split items preserved PyTorch label/action at threshold 0.33 (maximum confidence drift `0.03747682273387909`); real FastAPI `/predict/batch` preserved 19 input IDs; focused service/API tests passed 22 tests; generated contract check and extension unit suite passed (95 tests); a self-contained Playwright test started a temporary loopback ONNX server, applied two real model overlays, persisted non-mock model evidence plus positive response latency, captured `docs/extension/screenshots/ext-018-api-mode-onnx-int8.png`; and the full extension E2E suite passed (12 tests).",
+        "OpenAPI contract reintegration: `pnpm --dir apps/browser-extension check:api` passed without generated-schema drift; FastAPI contract-parity tests passed (12 tests); `GET /health`, `POST /predict`, and X-shaped `POST /predict/batch` all returned HTTP 200 from the loopback sampled ONNX service with `is_mock: false` and preserved IDs. The final verification passed `init.ps1`, 14 API tests, 110 extension unit tests, TypeScript compilation, and production build; the real ONNX API-mode Playwright scenario passed and refreshed `docs/extension/screenshots/ext-018-api-mode-onnx-int8.png`.",
+        "API-mode batch errors now always produce the explicit error session state and suppress detection-log persistence, including a mixed successful/failed chunk response. The regression failed before the correction and passes after it; the focused API client/gateway/coordinator suite passed 25 tests."
+      ],
+      "notes": "The runnable artifact is a sampled notebook baseline trained from `data/annotation/dataset_sampled_2384_labeled.xlsx`, not final human ground truth. It must not be represented as `indobert-clean-v0.1.0` or as the final API-001 model. Real-server extension API-mode overlay, non-mock metadata, latency, controlled 503 behavior, and screenshot validation are complete for this sampled artifact. Extension background requests use the manifest's explicit loopback host permissions and do not require CORS; an exact CORS origin is only relevant to a future ordinary web-page client. The ONNX INT8 runtime is explicitly selected with `JUDOLLENS_INFERENCE_RUNTIME=onnx-int8`, accepts only a conversion-report-eligible serving artifact, never falls back to PyTorch, and extension API requests are serialized in four-item chunks. Unicode robustness remains a separate experiment."
+    },
+    {
       "id": "COL-004",
       "priority": 3,
       "area": "dataset-collection",
@@ -714,6 +745,36 @@
         "The current workbook produced `dataset_sampled_2384.csv` with 2,384 rows: tele_positif=400, x_negatif=384, yt_negatif=400, yt_positif=400, tele_negatif=400, and x_positif=400."
       ],
       "notes": "The generated CSV is a local ignored artifact. pool or weak labels in the source workbook remain provenance/features, not final human ground truth."
+    },
+    {
+      "id": "EXT-015",
+      "priority": 15,
+      "area": "browser-extension",
+      "title": "Detect allow-listed X timeline GraphQL posts by status ID",
+      "user_visible_behavior": "Captured complete posts from Home, Search, profile, and Tweet Detail X timeline operations are predicted through the shared batch contract and receive the configured censor action only when their rendered tweet status ID matches the result; blur overlays the card, warn adds a compact `Terdeteksi JudolLens` badge while preserving readable text, and hide removes the matching tweet card.",
+      "status": "passing",
+      "verification": [
+        "Run focused X parser, debugger-monitor, and reconciler Vitest tests from apps/browser-extension.",
+        "Run `pnpm test:run`, `pnpm compile`, and `pnpm build` from apps/browser-extension.",
+        "Run `pnpm exec playwright test tests/e2e/x-timeline-coverage.spec.ts` and `pnpm test:e2e` from apps/browser-extension.",
+        "Run `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"& .\\init.ps1\"` from the repository root."
+      ],
+      "evidence": [
+        "The background observes only successful allow-listed X timeline response bodies after Network.loadingFinished, extracts canonical complete `{ id, text }` records, and deduplicates a bounded per-tab ID set without retaining raw payloads.",
+        "Captured X items follow the existing prediction batch route with `source.platform=x` and post context, so model selection, API transport, session stats, bounded detection logs, and model metadata remain shared.",
+        "The X content script subscribes to the monitor and reconciles at most 100 positive `{ id, riskLevel, action }` decisions in memory against `article[data-testid=\"tweet\"]` status links; blur adds one full-tweet overlay, warn adds a compact pointer-transparent `Terdeteksi JudolLens` badge without obscuring text, and hide removes only the matching tweet card. No X tweet text is scanned independently or persisted.",
+        "`pnpm test:run` passed 95 tests in 19 files; `pnpm compile` and `pnpm build` passed.",
+        "Replaced the three popup Protection toggles with one persisted automatic-protection switch. Disabled protection now suppresses automatic content-script scan dispatch and background predictor/stats/log writes; a post-prediction setting recheck discards in-flight work toggled off before persistence. `pnpm test:run` passed 106 unit tests in 20 files; `pnpm compile`, production build, and 3 popup Playwright tests passed; screenshot: `docs/extension/screenshots/ext-005-popup-control-center.png`.",
+        "Censor mode `hide` now travels through the X background delivery path and removes the whole status-ID-matched tweet; focused overlay, content-scan, coordinator, and reconciler unit tests passed (47 tests), and `pnpm compile` passed.",
+        "Censor mode `warn` maps a matching X status ID to exactly one compact, pointer-transparent `Terdeteksi JudolLens` badge—without a full-card overlay or filtered tweet text. Focused overlay, coordinator, and reconciler unit tests passed (38 tests); `pnpm compile`, `pnpm build`, and the loaded-extension Playwright delivery check passed. Screenshot: `docs/extension/screenshots/ext-017-x-search-timeline.png`.",
+        "Focused loaded-extension SearchTimeline delivery passed: only the tweet whose status ID matched the background-delivered result was blurred.",
+        "`pnpm test:e2e` passed 11 Playwright tests; screenshot evidence: `docs/extension/screenshots/ext-017-x-search-timeline.png`.",
+        "`parseXTimelinePayload()` replaces the Search-only parser without an alias and explicitly accepts only Home, Search, User profile, and Tweet Detail instruction roots plus direct/module tweet items; local capture smoke counts were Home=35, Search=20, UserOriginals=20, UserReposts=20, UserVideo=0, UserPhoto=20, UserReplies=2, TweetDetail=35.",
+        "The debugger monitor accepts only successful X responses whose final GraphQL operation segment is HomeTimeline, SearchTimeline, UserOriginalsTimeline, UserRepostsTimeline, UserVideoTimeline, UserPhotoTimeline, UserRepliesTimeline, or TweetDetail. It keeps per-tab request and 500-ID dispatch state bounded across terminal/cancellation lifecycle paths.",
+        "Focused parser, monitor, and reconciler tests passed 29 tests; `pnpm test:run` passed 128 tests in 20 files; `pnpm compile`, `pnpm build`, and repository `init.ps1` passed.",
+        "`pnpm test:e2e` passed 13 Playwright tests, including the production runtime-message X coverage scenario. The scenario verified Home/reply blur, profile warning, detail removal, and an unchanged unrelated card; screenshot `docs/extension/screenshots/ext-019-x-timeline-coverage.png` visibly records two blurred cards, the profile badge, and the readable unrelated card."
+      ],
+      "notes": "The Chrome debugger lifecycle is scoped to the subscribing X tab and detaches on content-script unsubscribe or tab closure. X DOM matching depends only on `article[data-testid=\"tweet\"]` and a numeric `/status/<id>` link. Chrome provides `onDetach` only with tab ID and reason, so a truly simultaneous unrelated same-tab `canceled_by_user` event is indistinguishable from a delayed expected explicit detach; all other unexpected detach reasons clean active and initializing state. Live account/session behavior remains a manual X validation item."
     }
   ]
 }

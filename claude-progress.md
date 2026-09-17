@@ -1,5 +1,56 @@
 # Progress Log
 
+## Session 081
+
+- Date: 2026-09-14
+- Goal: complete and verify the contract-first FastAPI/extension API transport, then decide the real-artifact verification path.
+- Completed:
+  - Added the canonical OpenAPI 3.1 contract at `contracts/judollens-api.openapi.yaml`; FastAPI request/response models and the generated extension client share that wire contract.
+  - Pinned the upstream IndoBERT checkpoint to Hugging Face revision `c2cd0b51ddce6580eb35263b39b0a1e5fb0a39e2` for both tokenizer/model downloads and artifact manifest provenance; source URLs now validate as URI values to match the canonical OpenAPI contract.
+  - Routed API-mode prediction exclusively through the extension background; content scripts and React pages retain their existing internal camelCase contract and remain transport-agnostic.
+  - Added terminal API-failure handling so an unavailable service is surfaced as an extension error without a false `non_judol` result or clean detection log.
+  - Corrected the extension API/manual-analysis regression and installed the Trainer runtime dependency required by the actual training path.
+  - Ran the standard `init.ps1` path successfully with an explicit absolute script path; it completed `uv sync --no-cache` and `uv run --no-cache python main.py`.
+- Verification run:
+  - `uv run --no-cache python -m pytest --basetemp=.pytest-tmp tests/unit/test_openapi_contract.py tests/unit/test_model_manifest.py tests/unit/test_unicode_evidence.py tests/unit/test_indobert_baseline.py tests/unit/test_inference_service.py apps/api/tests -q`: **39 passed** (one upstream Starlette deprecation warning).
+  - `pnpm --dir apps/browser-extension check:api`: generated client has no drift from the canonical OpenAPI YAML.
+  - Focused API transport/coordinator suite: **77 passed**; `pnpm --dir apps/browser-extension compile` passed.
+  - Existing extension surface regression: **5 Playwright tests passed**. This covered mock-mode overlay, dynamic content, selection trigger, and simulation—not API mode.
+- Notebook training setup: `notebooks/02_train_baseline.ipynb` now downloads `indobenchmark/indobert-base-p1` at revision `c2cd0b51ddce6580eb35263b39b0a1e5fb0a39e2` once into `OUTPUT_DIR/pretrained_indobert`, verifies required local checkpoint files, records source/revision/path metadata, and uses `local_files_only=True` for fine-tuning.
+- Notebook setup verification: JSON parsed; all 15 Python notebook cells excluding the intentional `%pip` cell compiled; `tests/unit/test_indobert_baseline.py tests/unit/test_model_manifest.py` passed (**17 tests**). No checkpoint download or fine-tuning was run locally.
+- Packaged the imported Colab model as `models/checkpoints/indobert-sampled-baseline-v0.1.0` with the unchanged 474.7 MiB `model.safetensors`, API binary label metadata (`non_judol: 0`, `judol: 1`), converted `split-manifest.json`, and a manifest tied to `data/annotation/dataset_sampled_2384_labeled.xlsx`. `artifact-provenance.json` explicitly identifies it as `sampled_notebook_baseline`; it is not the final human-annotation artifact.
+- Real local FastAPI verification with `JUDOLLENS_MODEL_ARTIFACT=models/checkpoints/indobert-sampled-baseline-v0.1.0`: `/health`, `/predict`, and `/predict/batch` returned HTTP 200 with `is_mock: false`; batch preserved IDs and classified `bonus slot` as `judol` (0.999353) and `saya menonton berita hari ini` as `non_judol` (0.000490).
+- Packager/API regression: `uv run --no-cache python -m pytest --basetemp=.pytest-tmp tests/unit/test_package_sampled_indobert_artifact.py tests/unit/test_model_manifest.py tests/unit/test_inference_service.py apps/api/tests -q`: **24 passed** (one upstream Starlette deprecation warning).
+- Artifact training decision:
+  - The default clean-model training reached 12 of 618 steps in the first epoch on CPU-only hardware, measuring roughly 24–39 seconds per step. Default Trainer behavior would take approximately 12–20 hours for three epochs.
+- Known risk or unresolved issue:
+  - The sampled artifact is now runnable locally, but `API-001` remains blocked for final acceptance because it is trained from `dataset_sampled_2384_labeled.xlsx`, not a final human annotation dataset. The API-mode browser extension/overlay/screenshot has not yet been verified with this real server.
+  - The clean baseline deliberately sends raw text to the tokenizer and provides Unicode spans only as evidence; Unicode-normalization/adversarial robustness needs the separate experiment plan.
+- Next best step:
+  - Start FastAPI with the sampled artifact, configure the extension API endpoint, and execute its actual API-mode manual/DOM batch surface checks. Use `dataset_final.xlsx` for the final artifact when human annotation is complete.
+
+
+## Session 082
+
+- Date: 2026-09-14
+- Goal: repair the browser extension's invalid local simulation match pattern before API-mode UI verification.
+- Root cause:
+  - `entrypoints/content.ts` declared `http://localhost:*/*` and `http://127.0.0.1:*/*`. Chrome match patterns already cover every port when the pattern omits the port; a port in the hostname is invalid. WXT emitted those entries into the content-script manifest, and the background runtime's matcher rejected them.
+- Completed:
+  - Removed the two invalid port-bearing content-script patterns; retained valid `http://localhost/*` and `http://127.0.0.1/*` entries, which match local simulation pages on any port.
+  - Added a regression that builds/reads the generated manifest and rejects any content-script match pattern whose hostname contains a port.
+- Verification run:
+  - RED: focused regression failed against the generated manifest because it contained the two invalid patterns.
+  - GREEN: `pnpm --dir apps/browser-extension build && pnpm --dir apps/browser-extension exec vitest run src/background/background-coordinator.test.ts`: build succeeded; **14 passed**.
+  - `pnpm --dir apps/browser-extension compile`: passed.
+  - `pnpm --dir apps/browser-extension test:run`: **78 passed**.
+  - `pnpm --dir apps/browser-extension test:e2e`: **9 passed**; rebuilt extension injected overlays in the local simulation flow.
+  - `graphify update .`: passed; graph updated to 1,981 nodes, 3,653 edges, and 149 communities.
+- Known risk or unresolved issue:
+  - The API server launch attempted during this repair exited with WinError 10048 because another process was already listening on `127.0.0.1:8000`; the original server remained the port owner. This is a port collision, not an artifact-loading failure.
+  - The real-server API-mode overlay, non-mock metadata, latency, 503 behavior, and screenshot remain separate API-001 acceptance work.
+- Next best step:
+  - Reload the rebuilt extension from `apps/browser-extension/.output/chrome-mv3`, then run its API-mode simulation against the already-running local server.
 ## Session 080
 
 - Date: 2026-09-13
@@ -2335,3 +2386,674 @@
   - Telegram scraping must stay limited to public channels and should be manually reviewed before scaling.
 - Next best step:
   - Add Telegram credentials to local `.env`, run the notebook with `RUN_COLLECTION=False` first to verify configuration, then set `RUN_COLLECTION=True` for a small seed smoke run and inspect the exported annotation queue.
+
+### Session 081
+
+- Date: 2026-09-14
+- Goal: blur the complete X/Twitter tweet containing a judol detection rather than only a matched text fragment.
+- Completed:
+  - Changed `apps/browser-extension/src/dom/overlay.ts` so a `blur` result within `[data-testid="tweet"]` creates one non-interactive, full-size backdrop-filter overlay on that tweet article.
+  - Kept ordinary page candidates and all `warn`/`hide` actions text-scoped; scan, message, storage, and OpenAPI contracts are unchanged.
+  - Deduplicated multiple judol candidates in the same tweet, preserving a single readable `Terdeteksi JudolLens` label and avoiding tweet DOM wrapping that could destabilize X layout.
+  - Added a focused unit regression plus a loaded-extension Playwright fixture for a tweet containing two detected text nodes and media.
+- Verification run:
+  - `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\judol_detection\init.ps1"` — passed; `uv sync --no-cache` and `uv run --no-cache python main.py` completed.
+  - `pnpm test:run -- src/dom/overlay.test.ts` — passed: 79 tests.
+  - `pnpm compile` — passed.
+  - `pnpm build` — passed.
+  - `pnpm exec playwright test tests/e2e/x-tweet-overlay.spec.ts` — passed: one full-tweet overlay, label, `backdrop-filter: blur(3px)`, and bounding box within the tweet border.
+  - `pnpm test:e2e` — passed: 10 Playwright tests.
+- Evidence captured:
+  - Screenshot visual verification: `docs/extension/screenshots/ext-015-x-tweet-overlay.png`; full X tweet including media is blurred, while the JudolLens label remains legible at bottom-right.
+  - The initial full E2E run had one intermittent pre-existing dynamic-fixture timing failure (zero overlays before its 5-second assertion); the exact test reproduced green, then the complete rerun passed 10/10 without code changes.
+- Files or artifacts updated:
+  - `apps/browser-extension/src/dom/overlay.ts`
+  - `apps/browser-extension/src/dom/overlay.test.ts`
+  - `apps/browser-extension/tests/e2e/fixtures/x-tweet-page.html`
+  - `apps/browser-extension/tests/e2e/x-tweet-overlay.spec.ts`
+  - `docs/extension/screenshots/ext-015-x-tweet-overlay.png`
+  - `docs/superpowers/plans/2026-09-14-tweet-level-blur.md`
+  - `feature_list.json`
+  - `claude-progress.md`
+- Known risk or unresolved issue:
+  - X owns and changes its third-party DOM. This implementation depends on the semantic `data-testid="tweet"` marker; if X removes it, blur safely falls back to the matched text instead of a broad container.
+- Next best step:
+  - Resume API-001 real-server extension validation: API mode against the sampled artifact, non-mock metadata and latency, 503 behavior, and the API-mode screenshot.
+
+### Session 082
+
+- Date: 2026-09-14
+- Goal: prefetch X/Twitter tweet predictions before tweets enter the viewport.
+- Completed:
+  - Added an X-only `IntersectionObserver` scheduler for
+    `article[data-testid="tweet"]`: visible roots precede below-viewport roots,
+    batches contain at most 12 roots, batches are serialized, and mutation
+    observation registers new tweet roots without scanning them early.
+  - Added a per-tab cache of at most 100 numeric X status-ID positive blur
+    decisions. Cache entries retain only `{ id, riskLevel }`; no tweet text,
+    URL, SearchTimeline payload, browsing history, or persistent extension
+    storage is retained.
+  - Added a local completed-prediction callback that pairs valid response IDs
+    to DOM refs and reports the setting-effective action. It does not change
+    OpenAPI, prediction request/response, or background message contracts.
+  - Routed only X/Twitter content scripts through the scheduler. YouTube,
+    Telegram, simulation, and other supported pages retain the full initial
+    scan plus `DynamicContentObserver` lifecycle.
+  - Added a loaded-extension X fixture and Playwright proof for an initially
+    offscreen tweet; screenshot recorded below.
+- Verification run:
+  - `pnpm test:run` — passed: 93 tests in 17 files.
+  - `pnpm compile` — passed: `tsc --noEmit`.
+  - `pnpm build` — passed: WXT production chrome-mv3 output.
+  - `pnpm exec playwright test tests/e2e/x-viewport-prefetch.spec.ts` —
+    passed: target was offscreen, already had its final overlay, and retained
+    it after entering the viewport.
+  - `pnpm test:e2e` — passed: 11 Playwright tests.
+- Evidence captured:
+  - Visual verification: `docs/extension/screenshots/ext-016-x-viewport-prefetch.png`; the target X tweet is fully blurred with the label visible after entering view.
+  - Unit coverage includes viewport priority, 12-root bounds, unavailable-observer fallback, dynamic registration, lifecycle cleanup, cache status parsing/eviction, remount cache use, result-ID pairing, and independent non-X text overlays.
+- Files or artifacts updated:
+  - `apps/browser-extension/src/dom/x-viewport-scheduler.ts`
+  - `apps/browser-extension/src/dom/x-viewport-scheduler.test.ts`
+  - `apps/browser-extension/src/dom/content-scan.ts`
+  - `apps/browser-extension/src/dom/content-scan.test.ts`
+  - `apps/browser-extension/src/dom/overlay.ts`
+  - `apps/browser-extension/src/dom/overlay.test.ts`
+  - `apps/browser-extension/src/dom/index.ts`
+  - `apps/browser-extension/entrypoints/content.ts`
+  - `apps/browser-extension/tests/e2e/test-utils.ts`
+  - `apps/browser-extension/tests/e2e/fixtures/x-viewport-prefetch-page.html`
+  - `apps/browser-extension/tests/e2e/x-viewport-prefetch.spec.ts`
+  - `docs/extension/screenshots/ext-016-x-viewport-prefetch.png`
+  - `docs/extension/frontend-roadmap.md`
+  - `feature_list.json`
+  - `claude-progress.md`
+- Known risk or unresolved issue:
+  - X owns its third-party DOM. This scheduler intentionally depends on
+    `article[data-testid="tweet"]`; if the marker changes, X tweet roots will
+    not be scheduled until that selector is revised.
+- Next best step:
+  - Resume API-001 real-server extension validation: API mode against the
+    sampled artifact, non-mock metadata and latency, 503 behavior, and the
+    API-mode screenshot.
+
+### Session 083
+
+- Date: 2026-09-14
+- Goal: validate the sampled local IndoBERT API through the built browser
+  extension in API mode.
+- Completed:
+  - Ran the manifest-valid sampled artifact on a dedicated loopback port and
+    verified `/health`, `/predict`, and `/predict/batch`. The two-item direct
+    batch preserved IDs, returned `is_mock: false`, and reported 3,689 ms.
+  - Used a focused loaded-extension Playwright scenario to switch storage to API
+    mode, confirm a real-model DOM blur, check non-mock model metadata and
+    nonzero latency in extension state, then verify a controlled 503 is retried
+    four times and retained as `api_prediction_failed` without an overlay. The
+    scenario was removed after verification because its 474.7 MiB local
+    artifact is deliberately untracked and unsuitable as a permanent E2E
+    precondition.
+  - Corrected API documentation and MVP architecture status to distinguish the
+    sampled integration baseline from the still-required final
+    human-annotated-model artifact.
+- Verification run:
+  - `powershell.exe -NoProfile -ExecutionPolicy Bypass -File
+    "D:\judol_detection\init.ps1"` — passed; `uv sync --no-cache` and
+    `uv run --no-cache python main.py` completed.
+  - `uv run --no-cache python -m pytest --basetemp=.pytest-tmp apps/api/tests`
+    — passed: 13 tests.
+  - `pnpm check:api` and `pnpm compile` — passed.
+  - `pnpm test:run` — passed: 94 extension unit tests in 17 files.
+  - Focused loaded-extension API-mode scenario — passed: real API overlay plus
+    terminal 503 state.
+- Evidence captured:
+  - Screenshot visual verification:
+    `docs/extension/screenshots/ext-017-api-mode-sampled-artifact.png`; real
+    sampled-model API mode blurs detected simulation posts while clean posts
+    remain readable.
+  - Direct API evidence: `/health` reported
+    `judollens-indobert-sampled-baseline` with `is_mock: false`; `/predict`
+    returned `sampled-item`; `/predict/batch` returned both input IDs and
+    `processing_time_ms: 3689`.
+- Files or artifacts updated:
+  - `docs/extension/screenshots/ext-017-api-mode-sampled-artifact.png`
+  - `apps/api/README.md`
+  - `docs/extension/mvp-architecture.md`
+  - `feature_list.json`
+  - `claude-progress.md`
+- Known risk or unresolved issue:
+  - The sampled baseline is trained from
+    `data/annotation/dataset_sampled_2384_labeled.xlsx`; it is suitable only
+    for integration evidence, not final ground-truth performance claims.
+  - Extension background requests use explicit loopback host permissions and do
+    not require CORS. An exact configured origin is relevant only to a future
+    ordinary web-page client; wildcard CORS remains prohibited.
+- Next best step:
+  - Human-annotate `dataset_final.xlsx`, train the final clean artifact, then
+    repeat this API-mode smoke against that artifact before marking API-001
+    passing.
+
+### Session 084
+
+- Date: 2026-09-14
+- Goal: replace the superseded X viewport scheduler with detection from captured
+  SearchTimeline responses and reconcile predictions by X status ID.
+- Completed:
+  - Removed the X-only `IntersectionObserver` scheduler and its viewport fixture
+    and test. X no longer independently scans rendered tweet text nodes.
+  - Kept the existing X monitor, parser, generic batch-coordinator route, and
+    status-ID reconciler as the single X detection path: the background observes
+    successful `SearchTimeline` bodies after `Network.loadingFinished`, predicts
+    `{ id, text }` entries through the existing batch contract, and sends keyed
+    predictions back to the subscribing tab.
+  - Made the reconciler self-contained by parsing numeric `/status/<id>` links
+    locally. It retains at most 100 positive `{ id, riskLevel }` decisions in
+    tab memory and applies a full-card overlay only to the matching
+    `article[data-testid="tweet"]`.
+  - Updated the MVP architecture, frontend roadmap, API contract explanation,
+    and `EXT-015` record for the SearchTimeline design.
+- Verification run:
+  - `pnpm vitest run src/dom/x-timeline-reconciler.test.ts` — passed: 3 tests.
+  - `pnpm test:run` — passed: 95 extension unit tests in 19 files.
+  - `pnpm compile` — passed: `tsc --noEmit`.
+  - `pnpm build` — passed: WXT production chrome-mv3 output.
+  - `pnpm exec playwright test tests/e2e/x-search-timeline.spec.ts` — passed:
+    a background-delivered prediction blurred only the matching X tweet card.
+  - `pnpm test:e2e` — passed: 11 Playwright tests.
+  - `graphify update .` — completed; graph rebuilt with 2,050 nodes and 3,788
+    edges. It warned that 16 stale nodes remain from excluded files; this is a
+    graph-maintenance issue, not a product verification failure.
+- Evidence captured:
+  - Screenshot visual verification:
+    `docs/extension/screenshots/ext-017-x-search-timeline.png`; the matching
+    X fixture post is fully blurred, its label remains visible, and a
+    nonmatching card remains readable.
+- Files or artifacts updated:
+  - `apps/browser-extension/entrypoints/content.ts`
+  - `apps/browser-extension/src/dom/index.ts`
+  - `apps/browser-extension/src/dom/x-timeline-reconciler.ts`
+  - `apps/browser-extension/src/dom/x-viewport-scheduler.ts` (removed)
+  - `apps/browser-extension/src/dom/x-viewport-scheduler.test.ts` (removed)
+  - `apps/browser-extension/tests/e2e/x-viewport-prefetch.spec.ts` (removed)
+  - `apps/browser-extension/tests/e2e/fixtures/x-viewport-prefetch-page.html`
+    (removed)
+  - `docs/extension/mvp-architecture.md`
+  - `docs/extension/frontend-roadmap.md`
+  - `docs/extension/api-contract.md`
+  - `feature_list.json`
+  - `claude-progress.md`
+- Known risk or unresolved issue:
+  - Live X account/session behavior, debugger attachment policy, response-body
+    availability, and virtualized DOM changes need researcher-managed manual
+    validation. The implementation intentionally depends on
+    `article[data-testid="tweet"]` and numeric status links.
+- Next best step:
+  - Human-annotate `dataset_final.xlsx`, train the final clean artifact, then
+    repeat the sampled API-mode smoke before marking API-001 passing.
+
+### Session 085
+
+- Date: 2026-09-14
+- Goal: measure CPU latency of the sampled local IndoBERT artifact against a
+  captured 19-item X SearchTimeline payload before selecting a serving change.
+- Completed:
+  - Loaded `models/checkpoints/indobert-sampled-baseline-v0.1.0` once, then
+    ran warm in-process measurements. The artifact uses `max_length: 256`;
+    the payload contained 3,874 characters, with per-item token lengths
+    51--84 and batch padding length 84. The raw payload was not saved because
+    it contains collected X content.
+  - For 10 warm runs, component p50/p95 latency in milliseconds was:
+
+    | Items | Total p50 | Total p95 | Forward p50 | Tokenize p50 | Unicode/projection p50 |
+    | ---: | ---: | ---: | ---: | ---: | ---: |
+    | 1 | 666.0 | 1,130.8 | 664.7 | 1.2 | 0.1 |
+    | 4 | 1,658.0 | 2,240.4 | 1,656.3 | 1.8 | 0.2 |
+    | 8 | 3,247.3 | 4,004.7 | 3,243.7 | 3.2 | 0.4 |
+    | 12 | 5,514.4 | 14,035.0 | 5,501.2 | 4.5 | 0.6 |
+    | 19 | 10,552.7 | 11,886.6 | 10,543.9 | 8.3 | 1.1 |
+
+  - Exercised the complete FastAPI `/predict/batch` path for 19 items after
+    warm-up. Five requests returned all 19 results and no errors. Endpoint
+    wall-clock p50 was 10,456.5 ms; response
+    `summary.processing_time_ms` p50 was 10,451 ms. This aligns with the
+    browser-observed 9.44 s wait and localizes latency to inference rather
+    than serialization or transport.
+  - Compared full 19-item `predict_items` runs in fresh processes with PyTorch
+    CPU thread counts. Five-run p50/p95 was 12,213/14,266 ms (1 thread),
+    8,876/11,501 ms (2 threads), and 8,170/13,198 ms (4 threads). The default
+    two-thread configuration has materially better p95 than four threads.
+- Decision:
+  - Do not increase the server queue or Uvicorn workers. The forward pass is
+    effectively all measured request time; tokenization and Unicode evidence
+    are each below 0.1% at batch 19.
+  - Use a small client batch as a temporary UX control if needed: four items
+    provide a 1.66 s p50 time-to-first result, while eight and nineteen items
+    exceed the interactive target. This preserves the OpenAPI contract.
+  - The next serving optimization experiment is ONNX Runtime CPU with dynamic
+    INT8 quantization and label/threshold parity evaluation against this
+    PyTorch artifact. Do not alter raw-text preprocessing or Unicode handling
+    during the runtime experiment.
+- Verification run:
+  - `powershell.exe -NoProfile -ExecutionPolicy Bypass -File init.ps1` —
+    passed; `uv sync --no-cache` and `uv run --no-cache python main.py` both
+    completed.
+- Known risk or unresolved issue:
+  - This is a sampled baseline artifact, not the final human-annotated clean
+    model. The thread and in-process numbers are machine-specific and provide
+    an optimization baseline, not a production SLO.
+- Next best step:
+  - Export the artifact to ONNX, benchmark FP32 and dynamic INT8 using the
+    same unsaved captured payload, and evaluate PyTorch--ONNX label,
+    confidence, and action parity before any extension batching change.
+
+### Session 086
+
+- Date: 2026-09-14
+- Goal: create a reproducible local conversion from the sampled IndoBERT
+  artifact to FP32 and dynamic-INT8 ONNX serving artifacts, with parity gates.
+- Completed:
+  - Added `scripts/export_indobert_onnx.py`. It validates the local manifest
+    and label map; exports an ONNX text classifier with dynamic batch/sequence
+    axes; quantizes from FP32 to dynamic per-channel INT8; copies the source
+    manifest and tokenizer into a separate serving artifact; and writes a
+    structured `conversion-report.json`.
+  - The script rejects nonempty output directories, runs only with local model
+    files, and preserves the artifact `max_length`, raw-text preprocessing,
+    threshold label boundary, and `none`/`warn`/`blur` rules. It does not alter
+    the FastAPI contract or browser extension.
+  - Added five deterministic unit tests for API action boundaries, label/action
+    parity, immutable output paths, absent manifests, and safe parity corpus
+    coverage. Added `onnxruntime` runtime dependency and `onnx` dev dependency.
+  - Converted the sampled baseline locally with:
+    `uv run --no-cache python scripts/export_indobert_onnx.py --source
+    models/checkpoints/indobert-sampled-baseline-v0.1.0 --output
+    models/serving/indobert-sampled-baseline-v0.1.0-onnx --threshold 0.33`.
+    The ignored artifact contains FP32 `model.onnx` (498,003,463 bytes) and
+    INT8 `model.int8.onnx` (125,654,723 bytes), reducing model storage by about
+    74.8%.
+- Parity evidence:
+  - `conversion-report.json` marks both FP32 and INT8 serving-eligible on four
+    safe Indonesian samples, including ordinary, URL-bearing, and
+    Unicode-obfuscated text. Every sample preserved its PyTorch label and
+    action. Maximum `judol` probability drift was `7.826089859008789e-05` for
+    FP32 (under the `1e-4` gate) and `6.955862045288086e-05` for INT8.
+  - Both artifacts accept `input_ids`, `attention_mask`, and `token_type_ids`.
+- Verification run:
+  - `uv sync --no-cache` — passed; installed `onnx==1.22.0` and
+    `onnxruntime==1.30.0`.
+  - `uv run --no-cache python -m pytest --basetemp=.pytest-tmp
+    tests/unit/test_export_indobert_onnx.py apps/api/tests/test_api_contract.py
+    -q` — passed: 17 tests. One existing FastAPI TestClient deprecation warning
+    from Starlette was emitted.
+- Known risk or unresolved issue:
+  - The legacy TorchScript ONNX exporter emitted transformers tracing warnings
+    during export; dynamic input axes and all report samples executed correctly,
+    but final artifact adoption still requires validation-split parity and real
+    X-payload latency measurements.
+  - `quantize_dynamic` emitted ONNX Runtime's generic preprocessing advisory.
+    Dynamic INT8 decision parity passed; no further graph transformation was
+    applied, so FP32-to-INT8 investigation remains traceable.
+  - The sampled artifact is not the final human-annotated model and must not be
+    presented as final deployment quality.
+- Next best step:
+  - Benchmark PyTorch, ONNX FP32, and ONNX INT8 on the same unsaved captured
+    X payload for batch sizes 1, 4, 8, and 19. Adopt an ONNX runtime adapter
+    only if latency improves and final validation-split label/action parity is
+    also acceptable.
+
+### Session 087
+
+- Date: 2026-09-14
+- Goal: compare CPU forward-pass latency of the sampled IndoBERT model in
+  PyTorch, ONNX FP32, and ONNX dynamic INT8 using the same unsaved 19-item X
+  payload used for the PyTorch baseline.
+- Method:
+  - Loaded the source tokenizer/model and both generated ONNX artifacts once;
+    all ONNX sessions used `CPUExecutionProvider`. Tokenization, HTTP, FastAPI
+    projection, and Unicode analysis were excluded, so the figures isolate
+    runtime forward-pass cost. Each cell received three warm-ups and ten warm
+    runs; p95 is nearest-rank. Default PyTorch thread count was two.
+  - Payload: 19 items, 3,874 total characters, maximum 297 characters. Batch
+    sequence length was 79 for sizes 1/4/8 and 84 for size 19.
+- Results (milliseconds):
+
+  | Batch | PyTorch p50 / p95 | ONNX FP32 p50 / p95 | ONNX INT8 p50 / p95 |
+  | ---: | ---: | ---: | ---: |
+  | 1 | 628.27 / 1,811.83 | 376.34 / 486.60 | 300.73 / 327.98 |
+  | 4 | 2,103.00 / 2,557.03 | 1,696.54 / 2,583.77 | 1,172.18 / 3,650.11 |
+  | 8 | 3,396.01 / 5,254.93 | 4,079.94 / 17,306.81 | 2,309.44 / 4,975.87 |
+  | 19 | 10,436.68 / 12,831.85 | 8,041.88 / 8,889.68 | 8,148.67 / 16,636.99 |
+
+- Decision:
+  - ONNX INT8 is the clear candidate for interactive small batches: p50 is
+    2.09x faster than PyTorch at batch 1, 1.79x at batch 4, and 1.47x at batch
+    8. Its batch-1 p95 is 327.98 ms versus PyTorch 1,811.83 ms.
+  - Do not adopt ONNX FP32 as the runtime default: it is slower and markedly
+    less stable at batch 8, despite improving batch 1 and batch 19 p50.
+  - Do not use batch 19 with any runtime for interactive X protection. ONNX
+    INT8 p50 is still 8.15 seconds and p95 is worse than PyTorch on this run.
+  - Candidate next serving configuration: ONNX INT8 with a client batch cap of
+    four. Its 1.17-second p50 gives a practical time-to-first-protection;
+    observed batch-4 p95 remains 3.65 seconds, so this must be verified through
+    the complete FastAPI/extension path before making an SLO claim.
+- Known risk or unresolved issue:
+  - Batch p95 varies materially on this two-core/four-thread Ryzen host;
+    measurements are machine-specific. Int8 quality has parity only on the
+    safe corpus; final validation-split parity remains required.
+  - Benchmark did not include FastAPI serialization, extension queueing, or
+    real browser overlay timing. It is runtime evidence, not end-to-end UX
+    verification.
+- Next best step:
+  - Implement a separate ONNX INT8 inference-service adapter behind the same
+    API contract, select it explicitly via artifact/runtime configuration, then
+    run validation-split parity and the loaded-extension API-mode smoke with a
+    four-item cap before retiring the PyTorch serving path.
+
+### Session 088
+
+- Date: 2026-09-14
+- Goal: adopt the sampled IndoBERT ONNX INT8 serving runtime behind the existing FastAPI/OpenAPI contract and validate the extension's four-item API path.
+- Completed:
+  - Added the explicit `onnx-int8` runtime selection, which loads only a manifest-validated tokenizer, INT8 ONNX model, and serving-eligible conversion report; it has no PyTorch fallback.
+  - Limited extension API gateway batches to four items and serialized chunks to retain ordered responses while avoiding simultaneous CPU inference work.
+  - Added a self-contained Playwright integration test that reserves a loopback port, starts the actual ONNX INT8 FastAPI service using the local serving artifact, configures the built extension for that endpoint, then verifies two real overlays, non-mock persisted model evidence, positive stored response latency, and screenshot output.
+  - Added `docs/extension/screenshots/ext-018-api-mode-onnx-int8.png`; it visibly shows the two real model detections (including Unicode-obfuscated text) blurred with JudolLens labels.
+- Verification run:
+  - Compared all 300 validation-split items at threshold `0.33` in four-item chunks: no label/action mismatches; maximum confidence drift was `0.03747682273387909`.
+  - Real ONNX FastAPI `/predict/batch` returned HTTP 200 and preserved the ordered 19 input IDs.
+  - `uv run --no-cache python -m pytest --basetemp=.pytest-tmp tests/unit/test_inference_service.py apps/api/tests -q` — passed: 22 tests. Six existing third-party deprecation/tracing warnings were emitted during the isolated ONNX export fixture.
+  - `pnpm check:api` — passed; `pnpm compile` — passed; `pnpm test:run` — passed: 95 tests.
+  - `pnpm exec playwright test tests/e2e/onnx-runtime-extension.spec.ts` — passed: 1 self-contained real-server extension test.
+  - `pnpm test:e2e` — passed: 12 Playwright tests after correcting the temporary ONNX service cleanup to terminate its full Windows process tree.
+- Decision:
+  - ONNX INT8 is the selected runtime for interactive local serving when `JUDOLLENS_MODEL_ARTIFACT` points to its serving artifact and `JUDOLLENS_INFERENCE_RUNTIME=onnx-int8`; PyTorch remains explicitly selectable for the source artifact and parity baseline.
+  - Four extension API items per serialized request is retained. The API/OpenAPI schema and raw-text Unicode analysis are unchanged.
+- Files or artifacts updated:
+  - `apps/api/app/config.py`
+  - `apps/api/app/main.py`
+  - `apps/api/app/services/inference.py`
+  - `apps/browser-extension/src/api/api-prediction-gateway.ts`
+  - `apps/browser-extension/src/api/api-prediction-gateway.test.ts`
+  - `apps/browser-extension/tests/e2e/onnx-runtime-extension.spec.ts`
+  - `apps/api/README.md`
+  - `docs/extension/screenshots/ext-018-api-mode-onnx-int8.png`
+  - `feature_list.json`
+  - `claude-progress.md`
+- Known risk or unresolved issue:
+  - The ONNX artifact remains a sampled baseline, not a final human-annotated model. The observed confidence drift is below the decision boundary for this split but model quality must be re-established after final annotation and retraining.
+  - Four-item client chunks protect time-to-first-result but do not establish a portable latency SLO; batch p95 remains host-dependent.
+- Next best step:
+  - Human-annotate `dataset_final.xlsx`, train a final clean artifact, convert and validate it with the same ONNX parity gates, then update API-001 only after final-model evidence is available.
+
+### Session 089
+
+- Date: 2026-09-14
+- Goal: prevent stale X content scripts from surfacing `Extension context invalidated` after an extension reload, update, disable, or uninstall.
+- Root cause:
+  - WXT invalidates existing content-script contexts after an extension lifecycle replacement, but the X-specific subscribe/unsubscribe and selection-trigger runtime messages bypassed the context lifecycle guard. An invalidated X page could therefore reject a `browser.runtime.sendMessage` promise and rethrow it from the X scan path, which appears as an uncaught page-console error.
+- Completed:
+  - Added `src/dom/content-runtime.ts`, a single guarded runtime-message boundary: it skips calls for an already invalid context, absorbs only the documented invalidation error, and discards replies that arrive after invalidation. Unrelated runtime failures still reject.
+  - Routed content scans, X timeline subscription lifecycle, and floating manual-analysis trigger messages through the guard.
+  - Registered `ctx.onInvalidated` cleanup so an existing content script disconnects its X listener/reconciler or dynamic observer and stops the selection trigger immediately.
+  - Added regressions for rejected invalidation, pre-send invalidation, post-await invalidation, unrelated error preservation, and scan-level invalidation.
+- Verification run:
+  - `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./init.ps1` — passed baseline startup verification.
+  - `pnpm exec vitest run src/dom/content-runtime.test.ts src/dom/content-scan.test.ts src/dom/x-timeline-reconciler.test.ts` — passed: 16 tests.
+  - `pnpm compile` — passed.
+  - `pnpm build && pnpm exec playwright test tests/e2e/x-search-timeline.spec.ts tests/e2e/x-tweet-overlay.spec.ts` — passed: 2 tests.
+- Files updated:
+  - `apps/browser-extension/entrypoints/content.ts`
+  - `apps/browser-extension/src/dom/content-runtime.ts`
+  - `apps/browser-extension/src/dom/content-runtime.test.ts`
+  - `apps/browser-extension/src/dom/content-scan.ts`
+  - `apps/browser-extension/src/dom/content-scan.test.ts`
+  - `apps/browser-extension/src/dom/index.ts`
+- Known behavior:
+  - Chrome reports `Extension context invalidated` for an old injected script when the extension changes. The repaired script now treats it as terminal lifecycle cleanup instead of an application crash. Reload the affected X tab once after updating the unpacked extension so Chrome injects the new build; a pre-existing old script cannot be patched in place.
+
+### Session 090
+
+- Date: 2026-09-14
+- Goal: correct the remaining `Extension context invalidated` exception emitted by the WXT context accessor on a stale injected X script.
+- Root cause:
+  - Session 089 guarded rejected `runtime.sendMessage` promises but still directly read `ctx.isInvalid`. WXT's getter itself reads `chrome.runtime.id`; when Chrome has invalidated an old content-script context, that getter throws `Extension context invalidated` before the message guard can run. The supplied stack trace contains the prior built guard `if (!e.isInvalid)`, confirming this path.
+- Completed:
+  - Added `isContentContextInvalid()`, which treats only the documented invalidation exception from WXT's context getter as terminal context state and preserves unrelated accessor failures.
+  - Replaced all direct content-entrypoint `ctx.isInvalid` reads with that safe accessor. The existing guarded message boundary now also uses it before and after a runtime message.
+  - Rebuilt the unpacked Chrome extension at `apps/browser-extension/.output/chrome-mv3` after the correction.
+- Verification run:
+  - `pnpm exec vitest run src/dom/content-runtime.test.ts src/dom/content-scan.test.ts src/dom/x-timeline-reconciler.test.ts` — passed: 18 tests.
+  - `pnpm compile` — passed.
+  - `pnpm build` — passed; regenerated `.output/chrome-mv3/content-scripts/content.js`.
+  - `pnpm exec playwright test tests/e2e/x-search-timeline.spec.ts tests/e2e/x-tweet-overlay.spec.ts` — passed: 2 tests.
+- Required local deployment:
+  - In `chrome://extensions`, reload the unpacked JudolLens extension whose root is `apps/browser-extension/.output/chrome-mv3`, then reload the X tab. Chrome cannot replace an already injected stale content script until the target page reloads.
+
+### Session 091
+
+- Date: 2026-09-14
+- Goal: recover the local ONNX INT8 serving setup after an incorrect checkpoint path was provided for manual backend logging.
+- Root cause:
+  - `models/checkpoints/indobert-sampled-baseline-v0.1.0` is the PyTorch source artifact and does not contain an ONNX conversion report or INT8 model. A manual export to `models/checkpoints/indobert-sampled-baseline-onnx-int8-v0.1.0` produced `fp32_serving_eligible=false` because its maximum FP32 probability drift (`0.0002841353416442871`) exceeded the `0.0001` gate.
+- Completed:
+  - Located the pre-existing, validated local serving artifact at `models/serving/indobert-sampled-baseline-v0.1.0-onnx`. Its conversion report records `fp32_serving_eligible=true`, `int8_serving_eligible=true`, and maximum FP32 drift `0.00007826089859008789`.
+  - Started the FastAPI service with that artifact and the explicit `onnx-int8` runtime; `/health` returned ready with the non-mock sampled baseline.
+  - Sent a real `/predict/batch` request: `judol` returned `judol` at `0.999756`; `ordinary` returned `non_judol` at `0.000303`.
+- Verification run:
+  - `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& './init.ps1'"` — passed baseline startup verification.
+  - `uv run --no-cache uvicorn apps.api.app.main:app --host 127.0.0.1 --port 8000 --log-level info` with `JUDOLLENS_MODEL_ARTIFACT=models/serving/indobert-sampled-baseline-v0.1.0-onnx` and `JUDOLLENS_INFERENCE_RUNTIME=onnx-int8` — `/health` returned HTTP 200.
+  - Real `/predict/batch` smoke request — passed with expected ordered labels.
+- Local command for backend logs:
+  - Set `JUDOLLENS_MODEL_ARTIFACT` to `models/serving/indobert-sampled-baseline-v0.1.0-onnx`, `JUDOLLENS_INFERENCE_RUNTIME=onnx-int8`, then start Uvicorn on `127.0.0.1:8000`.
+- Known risk:
+  - The sampled baseline is local-only and not a final human-annotated model. The failed checkpoint-local export remains unsuitable for serving and should not be selected.
+
+### Session 092
+
+- Date: 2026-09-14
+- Goal: replace the confusing popup protection controls with one automatic-protection master toggle.
+- Completed:
+  - Replaced the popup's sensor-mode, auto-blur, and Unicode-highlight controls with one persisted `protectionEnabled` switch. Detailed behavior settings remain only in Options.
+  - Automatic scans now exit before candidate collection or batch dispatch when disabled; the background independently skips prediction, stats, and detection-log writes.
+  - Added a post-prediction settings check so a scan completed after the user disables protection is discarded without persisting stale evidence.
+  - Updated the storage, popup-flow, and popup-screen-plan documentation; added regressions for persistence, content-script dispatch suppression, background defense, and the in-flight toggle race.
+- Verification run:
+  - `pnpm test:run` — passed: 106 unit tests in 20 files.
+  - `pnpm compile` — passed.
+  - `pnpm build && pnpm exec playwright test tests/e2e/popup.spec.ts` — production build passed; 3 Playwright popup/overlay tests passed. The popup test toggled **Aktifkan perlindungan**, observed `Nonaktif`, restored `Aktif`, and refreshed `docs/extension/screenshots/ext-005-popup-control-center.png`.
+- Review:
+  - Independent review identified the in-flight stale-settings race; it was fixed and covered by `discards an in-flight automatic scan when protection is disabled before persistence`.
+- Known behavior:
+  - The master toggle governs automatic protection only. Manual analysis and detailed censorship/Unicode configuration remain independently available from Options, matching their distinct user flows.
+
+### Session 093
+
+- Date: 2026-09-14
+- Goal: make Options `Censor mode: hide` remove a detected X tweet rather than
+  applying an opaque text-level wrapper.
+- Completed:
+  - The X background delivery now maps positive timeline predictions to the
+    persisted `censorMode`, matching the normal content-scan path.
+  - The X reconciler retains bounded `{ id, riskLevel, action }` decisions and
+    distinguishes `blur` from `hide` after status-ID matching.
+  - `hide` removes the complete matching `article[data-testid="tweet"]`; other
+    rendered tweets and all nonmatching status IDs remain untouched. `blur`
+    continues to use the existing full-card overlay.
+  - Updated the X roadmap, MVP architecture, and feature evidence to record
+    this intentional destructive DOM behavior for hide mode.
+- Verification run:
+  - `pnpm exec vitest run src/dom/overlay.test.ts src/dom/content-scan.test.ts src/dom/x-timeline-reconciler.test.ts src/background/background-coordinator.test.ts` — passed: 47 unit tests.
+  - `pnpm compile` — passed.
+  - No E2E test run, per user direction.
+- Known risk:
+  - X virtualized timeline remounts a censored status card after its decision
+    ages out of the bounded 100-item in-memory cache; it can then become visible
+    again until a new SearchTimeline delivery. This matches the pre-existing
+    no-persistence privacy boundary.
+
+### Session 094
+
+- Date: 2026-09-15
+- Goal: make Options `Censor mode: warn` visibly mark a status-ID-matched X
+  tweet without obscuring its content.
+- Root cause:
+  - The existing `warn` branch added an absolute amber element covering the
+    complete tweet card. It was technically visible but did not meet the
+    intended badge-only warning behavior.
+- Completed:
+  - The X reconciler continues to retain positive `warn` decisions alongside
+    `blur` and `hide`, keyed solely by bounded in-memory status IDs.
+  - A matching X tweet now receives exactly one compact, pointer-transparent
+    `Terdeteksi JudolLens` badge at its top-right. It creates no full-card
+    overlay, leaves tweet text readable, and leaves nonmatching cards intact.
+  - The loaded-extension SearchTimeline check now delivers a `warn` result and
+    asserts the badge, absence of the blur overlay, and warning marker.
+  - Updated the X implementation roadmap, MVP architecture, and EXT-015
+    behavior/evidence to describe badge-only warning mode.
+- Verification run:
+  - `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& './init.ps1'"`
+    — passed baseline startup verification.
+  - `pnpm exec vitest run src/dom/overlay.test.ts src/dom/x-timeline-reconciler.test.ts src/background/background-coordinator.test.ts`
+    — passed: 38 unit tests.
+  - `pnpm compile` — passed.
+  - `pnpm build` — passed; production output regenerated at
+    `apps/browser-extension/.output/chrome-mv3`.
+  - `pnpm exec playwright test tests/e2e/x-search-timeline.spec.ts` — passed:
+    1 loaded-extension browser test; screenshot refreshed at
+    `docs/extension/screenshots/ext-017-x-search-timeline.png`.
+- Known risk:
+  - X virtualized timeline remounts a censored status card after its decision
+    ages out of the bounded 100-item in-memory cache; it can then become visible
+    again until a new SearchTimeline delivery. This matches the no-persistence
+    privacy boundary.
+
+### Session 095
+
+- Date: 2026-09-16
+- Goal: verify the approved OpenAPI contract-first FastAPI and browser-extension integration, including generic X batch routing.
+- Completed:
+  - Confirmed `contracts/judollens-api.openapi.yaml` is the sole machine-readable contract: FastAPI exposes only `GET /health`, `POST /predict`, and `POST /predict/batch`; generated extension declarations have no drift; `x` is a `source.platform` value on the generic batch route, not a separate endpoint.
+  - Confirmed the extension confines snake_case/camelCase conversion to `src/api/judollens-api-client.ts`; background-owned API transport serializes four-item chunks, retries only `429`/`503`, and does not fall back to mock predictions.
+  - Fixed a persistence boundary found in review: an API batch containing successful chunks plus any terminal item error now enters the explicit API-error state and writes no detection logs. The response still returns its successful items and item-level errors to its caller.
+  - Updated `docs/extension/api-contract.md` with the partial-failure persistence rule and recorded API-001 evidence. API-001 remains `in_progress`: the serving artifact is a sampled notebook baseline, not final human-ground-truth model evidence.
+- Verification run:
+  - RED: `pnpm exec vitest run src/background/background-coordinator.test.ts` failed the new mixed-response regression because session stats became `active` and successful results would be logged.
+  - GREEN: the same focused coordinator test passed **20 tests** after the predicate correction; focused API client/gateway/selector/coordinator tests then passed **25 tests**, and `pnpm compile` passed.
+  - `pnpm --dir apps/browser-extension check:api` — passed; generated schema stayed clean.
+  - `uv run --no-cache python -m pytest --basetemp=.pytest-tmp apps/api/tests/test_api_contract.py -q` — passed **12 tests**.
+  - Live loopback smoke against the pre-existing `127.0.0.1:8000` sampled-baseline service: `/health`, `/predict`, and an X-shaped `/predict/batch` all returned HTTP 200 with `is_mock: false`; single ID `manual-1` and batch IDs `tweet-positive`, `tweet-negative` were preserved. The service was pre-existing and left running. The observed sampled-model classifications are smoke output, not ground truth.
+  - Final gates: `init.ps1` passed; `apps/api/tests` passed **14 tests**; extension `test:run` passed **110 tests**; API drift check, compile, and production build passed.
+  - The planned `tests/e2e/api-mode.spec.ts` does not exist, so Playwright reported “No tests found.” The real contract scenario is `tests/e2e/onnx-runtime-extension.spec.ts`; it passed **1 test**, started its own loopback ONNX service, applied two overlays, stored non-mock metadata and positive latency, and refreshed `docs/extension/screenshots/ext-018-api-mode-onnx-int8.png`.
+- Review:
+  - Independent review approved the partial-failure correction: API responses with any gateway error skip normal persistence; mock and error-free API scans retain their existing path.
+- Known risk:
+  - The validated ONNX artifact is the sampled `indobert-sampled-baseline-v0.1.0-onnx`, not a final model trained from human-annotated `dataset_final.xlsx`; API-001 must remain in progress until that artifact and evidence exist.
+- Next best step:
+  - Complete final human annotation, train and validate the final clean serving artifact, then repeat this contract smoke and API-mode browser scenario before marking API-001 passing.
+
+### Session 096
+
+- Date: 2026-09-16
+- Goal: extend X timeline GraphQL capture from SearchTimeline-only delivery to the approved allow-listed coverage while preserving the generic prediction contract.
+- Completed:
+  - Replaced `parseSearchTimelinePayload` with `parseXTimelinePayload` without a compatibility alias. It explicitly handles Home, Search, profile, and Tweet Detail instruction roots; direct and module tweet entries; canonical or legacy IDs; note or legacy text; trim/invalid-value rejection; and first-ID-wins deduplication.
+  - Restricted the debugger monitor to successful X responses for `HomeTimeline`, `SearchTimeline`, `UserOriginalsTimeline`, `UserRepostsTimeline`, `UserVideoTimeline`, `UserPhotoTimeline`, `UserRepliesTimeline`, and `TweetDetail`; the generic `/predict/batch` route, OpenAPI file, API mode, mock mode, logs, and storage contract did not change.
+  - Preserved per-tab dispatch deduplication and added lifecycle regressions for response failure, external detach, unsubscribe during attach/enable, replacement subscription after cancellation, and delayed explicit detach events.
+  - Confirmed status-ID-only reconciliation across Home, profile, detail, and reply cards. Nonmatching, nonnumeric-link, and linkless cards remain unchanged.
+  - Added a loaded-extension X coverage scenario and `docs/extension/screenshots/ext-019-x-timeline-coverage.png`.
+- Verification run:
+  - Local capture parser smoke printed only counts: HomeTimeline=35, SearchTimeline=20, UserOriginalsTimeline=20, UserRepostsTimeline=20, UserVideoTimeline=0, UserPhotoTimeline=20, UserRepliesTimeline=2, TweetDetail=35. The temporary smoke script was removed; no raw capture content was recorded.
+  - `pnpm exec vitest run src/x/x-timeline-parser.test.ts src/background/x-timeline-monitor.test.ts src/dom/x-timeline-reconciler.test.ts` — passed: 29 tests in 3 files.
+  - `pnpm test:run` — passed: 128 tests in 20 files.
+  - `pnpm compile` and `pnpm build` — passed.
+  - `pnpm exec playwright test tests/e2e/x-timeline-coverage.spec.ts` — passed: 1 test. `pnpm test:e2e` — passed: 13 tests.
+  - `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& .\init.ps1"` — passed baseline startup verification. `uv sync` emitted an existing `debugpy` missing-RECORD warning but completed, and `uv run --no-cache python main.py` reported the monorepo ready.
+- Review:
+  - Independent reviews found and corrected whitespace IDs, inherited allow-list membership, failed/detached response tracking, setup cancellation/replacement races, stale explicit-detach ordering, and a missing linkless-card regression.
+- Known risk:
+  - Chrome `onDetach` exposes only tab ID and reason. A truly simultaneous unrelated same-tab `canceled_by_user` event cannot be distinguished from a delayed explicit detach; the reason-qualified expected-detach fence protects the tested delayed-detach ordering without timeouts. Live logged-in X traffic remains a manual validation item.
+- Next best step:
+  - Complete final human annotation, train and validate the final clean serving artifact, then repeat the API contract smoke and API-mode browser scenario before marking API-001 passing.
+
+### Session 097
+
+- Date: 2026-09-16
+- Goal: prevent the X content script from crashing while registering its runtime-message listener after the extension context has been invalidated.
+- Root cause:
+  - The X branch called `browser.runtime.onMessage.addListener(...)` directly. During extension reload or update, WXT can invalidate the content-script context before that accessor is used, producing the observed `Cannot read properties of undefined (reading 'addListener')` startup crash.
+- Completed:
+  - Added `registerRuntimeMessageListenerSafely()` alongside the existing context-safe runtime send helper. It pre-checks WXT invalidation, absorbs only the expected invalid-context error, and preserves unrelated runtime failures.
+  - Routed X timeline prediction-listener registration through the guard; normal listener removal, reconciler teardown, subscription, and shared prediction contract remain unchanged.
+- Verification run:
+  - RED: `pnpm exec vitest run src/dom/content-runtime.test.ts` failed the new stale-listener regression because the guard did not exist.
+  - GREEN: `pnpm exec vitest run src/dom/content-runtime.test.ts src/dom/x-timeline-reconciler.test.ts` passed 13 tests.
+  - `pnpm compile` and `pnpm build` passed from `apps/browser-extension`.
+- Known risk:
+  - A stale content script cannot self-heal after an extension reload; Chrome must inject the current script on navigation/reload. The guard makes that lifecycle condition quiet and prevents it from crashing the page's active script.
+- Next best step:
+  - Complete final human annotation, train and validate the final clean serving artifact, then repeat the API contract smoke and API-mode browser scenario before marking API-001 passing.
+
+### Session 098
+
+- Date: 2026-09-16
+- Goal: localize user-visible browser-extension copy to Indonesian without
+  changing the OpenAPI prediction contract.
+- Completed:
+  - Replaced visible English copy in popup, options, log review, manual
+    analysis, and simulation surfaces with Indonesian equivalents; protocol
+    identifiers, platform values, and persisted contract enums remain stable.
+  - Updated the simulator Playwright heading assertion to its localized value.
+  - Documented the copy-language boundary in
+    `docs/extension/ui-screen-plan.md`.
+- Verification:
+  - `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& .\init.ps1"`
+    passed; it completed `uv sync --no-cache` and reported the monorepo ready.
+  - `pnpm compile` and `pnpm build` passed from `apps/browser-extension`.
+  - The running simulator returned HTTP 200 and contained every localized
+    marker: `Simulasi JudolLens`, the Indonesian subtitle, `Umpan Dasar`,
+    `Komentar Terobfuskasi`, `Umpan Campuran`, and its Indonesian ARIA label.
+  - `pnpm exec playwright test tests/e2e/simulation.spec.ts` reached the same
+    existing 30-second browser-context timeout. Its error context contains only
+    the timeout, and direct harness browser attachment fails earlier with
+    `Network.enable: Debugger is not attached to the tab`; this precedes any
+    test assertion.
+- Known risk:
+  - A visual screenshot of the localized simulator cannot be regenerated until
+    the shared Chrome/CDP lifecycle failure is resolved. The static HTML and
+    production extension build are verified, but no live rendered surface was
+    available in this workstation state.
+- Next best step:
+  - Resolve the shared Chromium/CDP lifecycle issue, rerun `pnpm test:e2e`, and
+    regenerate the simulator screenshot; API-001 remains blocked on a final
+    human-annotated model artifact.
+
+### Session 099
+
+- Date: 2026-09-16
+- Goal: repair the Chrome extension load failure caused by a manifest locale
+  catalog missing from WXT build output.
+- Root cause:
+  - `wxt.config.ts` correctly declares `default_locale: 'id'`, but WXT copies
+    locale catalogs only from `public/_locales/`; the catalog was incorrectly
+    placed at the extension root in `_locales/id/messages.json`. Chrome then
+    rejected the generated manifest because its required output subtree was
+    absent.
+- Completed:
+  - Moved the Indonesian catalog to
+    `apps/browser-extension/public/_locales/id/messages.json` without changing
+    its messages or the manifest locale.
+  - Added a build-output regression to
+    `src/background/background-coordinator.test.ts`, requiring the manifest's
+    declared default locale catalog to exist in `.output/chrome-mv3`.
+- Verification:
+  - RED: the new regression failed against the previous output because
+    `.output/chrome-mv3/_locales/id/messages.json` did not exist.
+  - GREEN: `pnpm build` now emits
+    `.output/chrome-mv3/_locales/id/messages.json`.
+  - `pnpm exec vitest run src/background/background-coordinator.test.ts` passed
+    21 tests; `pnpm compile` passed.
+  - Manifest smoke confirmed `default_locale=id`, the matching catalog exists,
+    and its JSON parses successfully.
+- Next best step:
+  - Reload the unpacked `.output/chrome-mv3` directory in Chrome. API-001
+    remains blocked only on a final human-annotated model artifact.
