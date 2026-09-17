@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JudolLens X Tweet Fixture</title>
+    <style>
+      body {
+        background: #000;
+        color: #e7e9ea;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        margin: 0;
+      }
+
+      [data-testid="cellInnerDiv"] {
+        margin: 24px auto;
+        max-width: 600px;
+      }
+
+      [data-testid="tweet"] {
+        border: 1px solid #2f3336;
+        border-radius: 16px;
+        box-sizing: border-box;
+        padding: 16px;
+      }
+
+      [data-testid="tweetText"] {
+        line-height: 1.45;
+        margin-top: 10px;
+      }
+
+      .tweet-meta {
+        color: #71767b;
+      }
+
+      .tweet-media {
+        background: linear-gradient(135deg, #1d9bf0, #7856ff);
+        border-radius: 12px;
+        height: 140px;
+        margin-top: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div data-testid="cellInnerDiv">
+        <article aria-label="Tweet promotion fixture" data-testid="tweet">
+          <div class="tweet-meta">@promosi_judol · 14j</div>
+          <a href="/vciffie/status/2099429059063341169">permalink</a>
+          <div data-testid="tweetText">bonus slot gacor malam ini</div>
+          <div data-testid="tweetText">daftar deposit sekarang untuk bonus member</div>
+          <div class="tweet-media" aria-label="Tweet media fixture"></div>
+        </article>
+      </div>
+    </main>
+  </body>
+</html>

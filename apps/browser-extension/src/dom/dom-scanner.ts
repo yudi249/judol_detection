@@ -37,6 +37,8 @@ export type ScanVisibleTextOptions = {
   minTextLength?: number;
   maxTextLength?: number;
   processedNodes?: WeakSet<Node>;
+  pendingNodes?: WeakSet<Node>;
+  markProcessed?: boolean;
 };
 
 export type ScanBatchPageContext = {
@@ -69,7 +71,7 @@ export function scanVisibleTextCandidateRefs(
 
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
-      if (processedNodes?.has(node)) {
+      if (processedNodes?.has(node) || options.pendingNodes?.has(node)) {
         return NodeFilter.FILTER_REJECT;
       }
 
@@ -102,7 +104,9 @@ export function scanVisibleTextCandidateRefs(
         },
         textNode: node as Text,
       });
-      processedNodes?.add(node);
+      if (options.markProcessed ?? true) {
+        processedNodes?.add(node);
+      }
     }
 
     node = walker.nextNode();

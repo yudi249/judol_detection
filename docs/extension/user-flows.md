@@ -62,7 +62,7 @@ User clicks extension icon
 -> popup reads settings, session stats, and recent logs
 -> user sees current platform and protection status
 -> user sees scanned count, detected count, and Unicode suspicious count
--> user toggles auto-blur or Unicode highlight
+-> user toggles automatic protection
 -> user opens Log or Options
 ```
 
@@ -74,8 +74,7 @@ Popup should show:
 - detected judol count
 - Unicode suspicious count
 - recent detections
-- auto-blur toggle
-- Unicode highlight toggle
+- automatic protection toggle
 - links to log and options pages
 
 ## 3. Detection Inspection Flow

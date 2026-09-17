@@ -32,7 +32,7 @@ export function registerManualAnalysisContextMenu() {
   browser.runtime.onInstalled.addListener(() => {
     browser.contextMenus.create({
       id: MANUAL_ANALYSIS_CONTEXT_MENU_ID,
-      title: 'Analyze with JudolLens',
+      title: 'Analisis dengan JudolLens',
       contexts: ['selection'],
     });
   });

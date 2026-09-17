@@ -1,4 +1,4 @@
-import type { DetectionAction, PredictionResult, UnicodeSpan } from '../shared';
+import type { DetectionAction, PredictionResult, RiskLevel, UnicodeSpan } from '../shared';
 import type { ScanCandidateRef } from './dom-scanner';
 
 const STYLE_ATTRIBUTE = 'data-judollens-style';
@@ -20,6 +20,7 @@ export function applyPredictionOverlays(
 
   const highlightUnicode = options.highlightUnicode ?? true;
   const refsById = new Map(candidateRefs.map((ref) => [ref.item.id, ref]));
+  const appliedTargets = new Set<HTMLElement>();
   let appliedCount = 0;
 
   for (const result of results) {
@@ -29,22 +30,60 @@ export function applyPredictionOverlays(
     }
 
     const ref = refsById.get(result.id);
-    if (!ref || !ref.textNode.parentNode || isAlreadyOverlayed(ref.textNode)) {
+    if (!ref || !ref.textNode.parentElement) {
       continue;
     }
 
-    const wrapper = createDetectionWrapper(result, action);
-    appendTextWithUnicodeHighlights(
-      wrapper,
-      ref.textNode.data,
-      highlightUnicode ? result.unicodeAnalysis.spans : [],
-    );
-    wrapper.append(createLabel());
-    ref.textNode.replaceWith(wrapper);
+    const target = resolveOverlayTarget(ref, action);
+    const tweetCensorTarget = isTweetCensorTarget(target, action);
+    if (
+      (tweetCensorTarget &&
+        (appliedTargets.has(target) || isAlreadyOverlayedTarget(target))) ||
+      (!tweetCensorTarget && isTextNodeAlreadyOverlayed(ref.textNode))
+    ) {
+      continue;
+    }
+
+    if (tweetCensorTarget) {
+      applyTweetCensor(target, result, action);
+    } else {
+      const wrapper = createDetectionWrapper(result, action);
+      appendTextWithUnicodeHighlights(
+        wrapper,
+        ref.textNode.data,
+        highlightUnicode ? result.unicodeAnalysis.spans : [],
+      );
+      wrapper.append(createLabel());
+      ref.textNode.replaceWith(wrapper);
+    }
+    if (tweetCensorTarget) {
+      appliedTargets.add(target);
+    }
     appliedCount += 1;
   }
 
   return appliedCount;
+}
+
+export type CachedTweetCensor = {
+  id: string;
+  riskLevel: RiskLevel;
+  action: Extract<DetectionAction, 'blur' | 'hide' | 'warn'>;
+};
+
+export function applyCachedTweetCensor(
+  tweet: HTMLElement,
+  result: CachedTweetCensor,
+): boolean {
+  if (
+    !tweet.matches('[data-testid="tweet"]') ||
+    isAlreadyOverlayedTarget(tweet)
+  ) {
+    return false;
+  }
+
+  applyTweetCensor(tweet, result, result.action);
+  return true;
 }
 
 export function ensureJudolLensOverlayStyles(): void {
@@ -72,6 +111,37 @@ export function ensureJudolLensOverlayStyles(): void {
   filter: blur(3px);
   user-select: none;
 }
+[data-judollens-tweet-blur] {
+  position: relative;
+}
+.judollens-tweet-overlay {
+  background: rgba(239, 68, 68, 0.12);
+  border-radius: inherit;
+  inset: 0;
+  outline: 1px solid rgba(239, 68, 68, 0.42);
+  pointer-events: none;
+  position: absolute;
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+.judollens-tweet-overlay .judollens-label {
+  bottom: 8px;
+  position: absolute;
+  right: 8px;
+  z-index: 1;
+}
+[data-judollens-tweet-warning] {
+  position: relative;
+}
+.judollens-tweet-warning.judollens-label {
+  margin-left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 1;
+}
+
 .judollens-warning {
   background: rgba(245, 158, 11, 0.14);
   outline: 1px solid rgba(245, 158, 11, 0.5);
@@ -187,6 +257,76 @@ function createLabel(): HTMLSpanElement {
   return label;
 }
 
-function isAlreadyOverlayed(textNode: Text): boolean {
-  return Boolean(textNode.parentElement?.closest(`[${OVERLAY_ATTRIBUTE}]`));
+function resolveOverlayTarget(
+  ref: ScanCandidateRef,
+  action: DetectionAction,
+): HTMLElement {
+  if (action === 'blur' || action === 'hide') {
+    const tweet = ref.textNode.parentElement?.closest<HTMLElement>(
+      '[data-testid="tweet"]',
+    );
+    if (tweet) {
+      return tweet;
+    }
+  }
+
+  return ref.textNode.parentElement!;
+}
+
+function isTweetCensorTarget(
+  target: HTMLElement,
+  action: DetectionAction,
+): boolean {
+  return (
+    (action === 'blur' || action === 'hide') &&
+    target.matches('[data-testid="tweet"]')
+  );
+}
+
+function applyTweetCensor(
+  target: HTMLElement,
+  result: Pick<PredictionResult, 'id' | 'riskLevel'>,
+  action: DetectionAction,
+): void {
+  if (action === 'hide') {
+    target.setAttribute('data-judollens-tweet-hide', result.id);
+    target.remove();
+    return;
+  }
+
+  if (action === 'warn') {
+    ensureJudolLensOverlayStyles();
+    const badge = createLabel();
+    badge.classList.add('judollens-tweet-warning');
+    target.setAttribute('data-judollens-tweet-warning', 'true');
+    badge.setAttribute(OVERLAY_ATTRIBUTE, result.id);
+    badge.setAttribute('data-judollens-risk', result.riskLevel);
+    target.append(badge);
+    return;
+  }
+
+  if (action !== 'blur') {
+    return;
+  }
+
+  ensureJudolLensOverlayStyles();
+  const overlay = document.createElement('span');
+  overlay.classList.add(
+    'judollens-detected',
+    'judollens-blur',
+    'judollens-tweet-overlay',
+  );
+  target.setAttribute('data-judollens-tweet-blur', 'true');
+  overlay.setAttribute(OVERLAY_ATTRIBUTE, result.id);
+  overlay.setAttribute('data-judollens-risk', result.riskLevel);
+  overlay.append(createLabel());
+  target.append(overlay);
+}
+
+function isAlreadyOverlayedTarget(target: HTMLElement): boolean {
+  return Boolean(target.querySelector(`:scope > [${OVERLAY_ATTRIBUTE}]`));
+}
+
+function isTextNodeAlreadyOverlayed(textNode: Text): boolean {
+  return textNode.parentElement?.closest(`[${OVERLAY_ATTRIBUTE}]`) !== null;
 }

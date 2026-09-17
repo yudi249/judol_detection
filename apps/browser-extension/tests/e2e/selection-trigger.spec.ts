@@ -45,7 +45,7 @@ test.describe('JudolLens selection floating trigger', () => {
       });
 
       const analyzeButton = page.getByRole('button', {
-        name: 'Analyze with JudolLens',
+        name: 'Analisis dengan JudolLens',
       });
       await expect(analyzeButton).toBeVisible();
       await page.screenshot({
@@ -59,7 +59,7 @@ test.describe('JudolLens selection floating trigger', () => {
 
       await expect(manualPage).toHaveURL(/manual-analysis\.html$/);
       await expect(
-        manualPage.getByRole('textbox', { name: 'Manual analysis text' }),
+        manualPage.getByRole('textbox', { name: 'Teks analisis manual' }),
       ).toHaveValue('Besok kita bahas tugas kuliah jam 9 ya.');
     } finally {
       await context.close();

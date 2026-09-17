@@ -43,9 +43,9 @@ export type ExtensionSettings = {
   predictionMode: "mock" | "api"
   apiEndpoint: string
   threshold: number
+  protectionEnabled: boolean
   censorMode: "blur" | "warn" | "hide" | "none"
   autoBlur: boolean
-  highlightUnicode: boolean
   platformScope: {
     youtube: boolean
     telegram: boolean
@@ -67,6 +67,7 @@ export const defaultExtensionSettings: ExtensionSettings = {
   predictionMode: "mock",
   apiEndpoint: "http://localhost:8000",
   threshold: 0.75,
+  protectionEnabled: true,
   censorMode: "blur",
   autoBlur: true,
   highlightUnicode: true,

@@ -58,7 +58,7 @@ export function createSelectionAnalyzeTrigger(
     button = document.createElement('button');
     button.className = BUTTON_CLASS;
     button.type = 'button';
-    button.textContent = 'Analyze with JudolLens';
+    button.textContent = 'Analisis dengan JudolLens';
     button.addEventListener('mousedown', (event) => {
       event.preventDefault();
     });

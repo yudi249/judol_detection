@@ -29,7 +29,7 @@ describe('selection analyze trigger', () => {
     const button = document.querySelector<HTMLButtonElement>(
       '.judollens-selection-analyze-button',
     );
-    expect(button?.textContent).toBe('Analyze with JudolLens');
+    expect(button?.textContent).toBe('Analisis dengan JudolLens');
     expect(button?.style.left).toBe('40px');
     expect(button?.style.top).toBe('128px');
 

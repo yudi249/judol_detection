@@ -1,10 +1,12 @@
 // @vitest-environment happy-dom
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   MESSAGE_TYPES,
   defaultExtensionSettings,
   type ExtensionStateResponseMessage,
+  type GetExtensionStateMessage,
+  type ScanBatchMessage,
   type ScanBatchResponseMessage,
 } from '../shared';
 import {
@@ -88,6 +90,89 @@ describe('content scan integration flow', () => {
     );
   });
 
+  it('reports only results paired to candidate refs before applying overlays', async () => {
+    document.body.innerHTML = '<main><p>bonus slot gacor malam ini</p></main>';
+    const onPredictionResults = vi.fn();
+
+    await runJudolLensScanOnce({
+      root: document.body,
+      url: 'http://localhost:5173/fixture',
+      onPredictionResults,
+      sendMessage: async (message) =>
+        message.type === MESSAGE_TYPES.getExtensionState
+          ? createStateResponse()
+          : createResponse(message.payload.requestId, [
+              { id: 'scan-node-0', text: 'bonus slot gacor malam ini' },
+              { id: 'unknown-result', text: 'unpaired result' },
+            ]),
+    });
+
+    expect(onPredictionResults).toHaveBeenCalledWith([
+      expect.objectContaining({
+        result: expect.objectContaining({ id: 'scan-node-0' }),
+        ref: expect.objectContaining({ item: expect.objectContaining({ id: 'scan-node-0' }) }),
+      }),
+    ]);
+  });
+
+  it('abandons a scan when the extension context invalidates during prediction', async () => {
+    document.body.innerHTML = '<main><p>bonus slot gacor malam ini</p></main>';
+
+    await expect(
+      runJudolLensScanOnce({
+        root: document.body,
+        url: 'http://localhost:5173/fixture',
+        sendMessage: async (message) => {
+          if (message.type === MESSAGE_TYPES.getExtensionState) {
+            return createStateResponse();
+          }
+
+          throw new Error('Extension context invalidated.');
+        },
+      }),
+    ).resolves.toBe(0);
+  });
+
+  it('keeps candidates eligible after a failed prediction request', async () => {
+    document.body.innerHTML = '<main><p>bonus slot gacor malam ini</p></main>';
+    const processedNodes = new WeakSet<Node>();
+    const sentTexts: string[] = [];
+    const sendMessage = async (message: ScanBatchMessage | GetExtensionStateMessage) => {
+      if (message.type === MESSAGE_TYPES.getExtensionState) {
+        return createStateResponse();
+      }
+
+      sentTexts.push(...message.payload.items.map((item) => item.text));
+      if (sentTexts.length === 1) {
+        throw new Error('temporary prediction failure');
+      }
+
+      return createResponse(message.payload.requestId, [
+        { id: 'scan-node-0', text: 'bonus slot gacor malam ini' },
+      ]);
+    };
+
+    await expect(
+      runJudolLensScanOnce({
+        root: document.body,
+        url: 'http://localhost:5173/fixture',
+        processedNodes,
+        sendMessage,
+      }),
+    ).rejects.toThrow('temporary prediction failure');
+    await runJudolLensScanOnce({
+      root: document.body,
+      url: 'http://localhost:5173/fixture',
+      processedNodes,
+      sendMessage,
+    });
+
+    expect(sentTexts).toEqual([
+      'bonus slot gacor malam ini',
+      'bonus slot gacor malam ini',
+    ]);
+  });
+
   it('scans dynamic roots without rescanning previously processed nodes', async () => {
     document.body.innerHTML =
       '<main><p>bonus slot awal sudah diproses</p></main>';
@@ -139,6 +224,25 @@ describe('content scan integration flow', () => {
     expect(applied).toBe(1);
     expect(sentTexts).toEqual(['bonus new member slot gacor dinamis']);
     expect(document.querySelectorAll('.judollens-detected')).toHaveLength(2);
+  });
+
+  it('skips automatic scan when master protection is disabled', async () => {
+    document.body.innerHTML =
+      '<main><p>bonus slot gacor malam ini</p></main>';
+    const sentTypes: string[] = [];
+
+    const applied = await runJudolLensScanOnce({
+      root: document.body,
+      url: 'http://localhost:5173/fixture',
+      sendMessage: async (message) => {
+        sentTypes.push(message.type);
+        return createStateResponse({ protectionEnabled: false });
+      },
+    });
+
+    expect(applied).toBe(0);
+    expect(sentTypes).toEqual([MESSAGE_TYPES.getExtensionState]);
+    expect(document.querySelector('.judollens-detected')).toBeNull();
   });
 
   it('skips automatic scan when the current platform is disabled in settings', async () => {
@@ -194,6 +298,29 @@ describe('content scan integration flow', () => {
     expect(sentThresholds).toEqual([0.1]);
     expect(document.querySelector('.judollens-detected')).not.toBeNull();
     expect(document.querySelector('.judollens-unicode-span')).toBeNull();
+  });
+
+  it('reports a settings-selected warn action instead of caching a blur', async () => {
+    document.body.innerHTML = '<main><p>bonus slot gacor malam ini</p></main>';
+    const onPredictionResults = vi.fn();
+
+    await runJudolLensScanOnce({
+      root: document.body,
+      url: 'http://localhost:5173/fixture',
+      onPredictionResults,
+      sendMessage: async (message) =>
+        message.type === MESSAGE_TYPES.getExtensionState
+          ? createStateResponse({ censorMode: 'warn' })
+          : createResponse(message.payload.requestId, [
+              { id: 'scan-node-0', text: 'bonus slot gacor malam ini' },
+            ]),
+    });
+
+    expect(onPredictionResults).toHaveBeenCalledWith([
+      expect.objectContaining({
+        result: expect.objectContaining({ action: 'warn' }),
+      }),
+    ]);
   });
 
   it('does not apply overlays when censor mode is none but still sends scan batch', async () => {

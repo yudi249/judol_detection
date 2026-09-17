@@ -253,6 +253,34 @@ EXT-014 wires the existing Options page into live content-script and background
 behavior. It keeps all target-page DOM changes vanilla/scoped CSS and does not
 start FastAPI integration.
 
+## Milestone 15: X Timeline GraphQL Coverage
+
+Goal: detect complete X/Twitter posts from allow-listed timeline GraphQL
+responses and apply the configured censor action only to the matching rendered
+tweet card.
+
+- applies only to `article[data-testid="tweet"]` on X/Twitter pages
+- the background owns one scoped `chrome.debugger` Network lifecycle per
+  subscribing tab and reads successful response bodies only after
+  `Network.loadingFinished` for these exact operations: `HomeTimeline`,
+  `SearchTimeline`, `UserOriginalsTimeline`, `UserRepostsTimeline`,
+  `UserVideoTimeline`, `UserPhotoTimeline`, `UserRepliesTimeline`, and
+  `TweetDetail`; an empty `UserVideoTimeline` is valid
+- it parses each complete post into `{ id, text }`, deduplicates a bounded set
+  of IDs per tab, and routes items through the existing generic batch predictor
+- the content script receives keyed results and retains at most 100 positive
+  `{ id, riskLevel, action }` decisions in memory; it applies a full-card blur,
+  a compact pointer-transparent `Terdeteksi JudolLens` badge for `warn`, or
+  removes the matching tweet card for `hide`, only when the rendered tweet
+  status link has the same ID
+- no raw response, credential, URL history, tweet text, or prediction cache is
+  persisted; YouTube, Telegram, simulation, and other supported pages retain
+  their full initial DOM scan plus dynamic-observer lifecycle
+
+`EXT-015` adds no X-specific HTTP endpoint or response shape. The API contract
+remains `/predict/batch`; the narrow X DOM dependency is deliberately limited to
+`article[data-testid="tweet"]` and status links.
+
 ## MVP Boundaries
 
 MVP 1 is complete after Milestone 10.

@@ -4,6 +4,7 @@ import {
   type ExtensionStateResponseMessage,
   type GetExtensionStateMessage,
   type Platform,
+  type PredictionResult,
   type ScanBatchMessage,
   type ScanBatchResponseMessage,
 } from '../shared';
@@ -16,6 +17,13 @@ import {
   type ScanCandidateRef,
 } from './dom-scanner';
 
+const pendingNodes = new WeakSet<Node>();
+
+export type CompletedPrediction = {
+  result: PredictionResult;
+  ref: ScanCandidateRef;
+};
+
 export type RunJudolLensScanOptions = {
   root: ParentNode;
   url: string;
@@ -24,6 +32,7 @@ export type RunJudolLensScanOptions = {
   sendMessage: (
     message: ScanBatchMessage | GetExtensionStateMessage,
   ) => Promise<unknown>;
+  onPredictionResults?: (completed: CompletedPrediction[]) => void;
 };
 
 export type RunJudolLensScanForRootsOptions = Omit<
@@ -51,31 +60,65 @@ export async function runJudolLensScanForRoots(
   const settings = state?.payload.settings;
   const platform = detectPlatformFromUrl(options.url);
 
-  if (settings && !isPlatformEnabled(platform, settings.platformScope)) {
+  if (settings && (!settings.protectionEnabled || !isPlatformEnabled(platform, settings.platformScope))) {
     return 0;
   }
 
-  const candidateRefs = collectCandidateRefs(
-    options.roots,
-    options.processedNodes,
-  );
-  const request = createScanBatchRequest(
-    candidateRefs.map((ref) => ref.item),
-    createPageContext(options, state),
-  );
-  const response = (await options.sendMessage(
-    createScanBatchMessage(request),
-  )) as ScanBatchResponseMessage | undefined;
-
-  if (response?.type !== MESSAGE_TYPES.scanBatch) {
-    return 0;
+  const candidateRefs = collectCandidateRefs(options.roots, options.processedNodes);
+  for (const ref of candidateRefs) {
+    pendingNodes.add(ref.textNode);
   }
 
-  return applyPredictionOverlays(response.payload.results, candidateRefs, {
-    autoBlur: settings?.autoBlur,
-    censorMode: settings?.censorMode,
-    highlightUnicode: settings?.highlightUnicode ?? true,
-  });
+  try {
+    const request = createScanBatchRequest(
+      candidateRefs.map((ref) => ref.item),
+      createPageContext(options, state),
+    );
+    let response: ScanBatchResponseMessage | undefined;
+    try {
+      response = (await options.sendMessage(
+        createScanBatchMessage(request),
+      )) as ScanBatchResponseMessage | undefined;
+    } catch (error) {
+      if (isExtensionContextInvalidated(error)) {
+        return 0;
+      }
+
+      throw error;
+    }
+
+    if (response?.type !== MESSAGE_TYPES.scanBatch) {
+      return 0;
+    }
+
+    const overlayOptions = {
+      autoBlur: settings?.autoBlur,
+      censorMode: settings?.censorMode,
+      highlightUnicode: settings?.highlightUnicode ?? true,
+    };
+    const refsById = new Map(candidateRefs.map((ref) => [ref.item.id, ref]));
+    const completed = response.payload.results.flatMap((result) => {
+      const ref = refsById.get(result.id);
+      return ref
+        ? [{ result: { ...result, action: resolveEffectiveAction(result, overlayOptions) }, ref }]
+        : [];
+    });
+    options.onPredictionResults?.(completed);
+
+    const applied = applyPredictionOverlays(
+      response.payload.results,
+      candidateRefs,
+      overlayOptions,
+    );
+    for (const ref of candidateRefs) {
+      options.processedNodes?.add(ref.textNode);
+    }
+    return applied;
+  } finally {
+    for (const ref of candidateRefs) {
+      pendingNodes.delete(ref.textNode);
+    }
+  }
 }
 
 function collectCandidateRefs(
@@ -85,6 +128,8 @@ function collectCandidateRefs(
   const refs = roots.flatMap((root) =>
     scanVisibleTextCandidateRefs(root, {
       processedNodes,
+      pendingNodes,
+      markProcessed: false,
     }),
   );
 
@@ -118,4 +163,27 @@ function isPlatformEnabled(
   }
 
   return scope[platform];
+}
+
+function resolveEffectiveAction(
+  result: PredictionResult,
+  options: {
+    autoBlur?: boolean;
+    censorMode?: PredictionResult['action'];
+  },
+): PredictionResult['action'] {
+  if (options.censorMode) {
+    return options.censorMode;
+  }
+
+  return result.action === 'blur' && options.autoBlur === false
+    ? 'warn'
+    : result.action;
+}
+
+function isExtensionContextInvalidated(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.toLowerCase().includes('extension context invalidated')
+  );
 }

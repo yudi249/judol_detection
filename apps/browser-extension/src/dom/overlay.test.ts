@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { PredictionResult } from '../shared';
 import {
+  applyCachedTweetCensor,
   applyPredictionOverlays,
   ensureJudolLensOverlayStyles,
 } from './overlay';
@@ -254,6 +255,82 @@ describe('JudolLens page overlay', () => {
     expect(document.querySelectorAll('.judollens-detected')).toHaveLength(1);
     expect(document.querySelectorAll('.judollens-label')).toHaveLength(1);
   });
+
+  it('blurs one X tweet once when multiple tweet text candidates are detected', () => {
+    document.body.innerHTML = `
+      <div data-testid="cellInnerDiv">
+        <article data-testid="tweet">
+          <div data-testid="tweetText"><span>bonus slot gacor malam ini</span></div>
+          <div data-testid="tweetText"><span>daftar deposit sekarang</span></div>
+        </article>
+      </div>
+    `;
+    const tweet = document.querySelector<HTMLElement>('[data-testid="tweet"]');
+    const textNodes = Array.from(
+      document.querySelectorAll('[data-testid="tweetText"] span'),
+      (element) => element.firstChild,
+    ).filter((node): node is Text => node instanceof Text);
+
+    if (!tweet || textNodes.length !== 2) {
+      throw new Error('Missing X tweet fixture');
+    }
+
+    const applied = applyPredictionOverlays(
+      [
+        createResult({ id: 'candidate-1' }),
+        createResult({ id: 'candidate-2' }),
+      ],
+      textNodes.map((textNode, index) => ({
+        item: {
+          id: `candidate-${index + 1}`,
+          text: textNode.data,
+          context: { kind: 'post' as const, visible: true },
+        },
+        textNode,
+      })),
+    );
+
+    expect(applied).toBe(1);
+    expect(tweet.getAttribute('data-judollens-tweet-blur')).toBe('true');
+    expect(tweet.querySelector(':scope > .judollens-tweet-overlay')).not.toBeNull();
+    expect(tweet.textContent).toContain('bonus slot gacor malam ini');
+    expect(tweet.textContent).toContain('daftar deposit sekarang');
+    expect(tweet.querySelector('.judollens-content')).toBeNull();
+    expect(tweet.classList.contains('judollens-detected')).toBe(false);
+    expect(document.querySelectorAll('.judollens-label')).toHaveLength(1);
+  });
+
+  it('applies one final cached blur to an X tweet', () => {
+    document.body.innerHTML = '<article data-testid="tweet"><p>bonus slot gacor</p></article>';
+    const tweet = document.querySelector<HTMLElement>('[data-testid="tweet"]');
+    if (!tweet) {
+      throw new Error('Missing X tweet fixture');
+    }
+
+    const result = { id: 'candidate-1', riskLevel: 'high' as const, action: 'blur' as const };
+    expect(applyCachedTweetCensor(tweet, result)).toBe(true);
+    expect(applyCachedTweetCensor(tweet, result)).toBe(false);
+    expect(tweet.querySelectorAll(':scope > .judollens-tweet-overlay')).toHaveLength(1);
+    expect(tweet.getAttribute('data-judollens-tweet-blur')).toBe('true');
+  });
+
+ it('censors independent direct text nodes in one non-X parent', () => {
+  document.body.innerHTML = '<p>bonus slot gacor <strong>aman</strong> deposit member</p>';
+  const textNodes = Array.from(document.querySelector('p')!.childNodes).filter(
+   (node): node is Text => node.nodeType === Node.TEXT_NODE,
+  );
+
+  const applied = applyPredictionOverlays(
+   [createResult({ id: 'first' }), createResult({ id: 'second' })],
+   textNodes.map((textNode, index) => ({
+    item: { id: index === 0 ? 'first' : 'second', text: textNode.data, context: { kind: 'post', visible: true } },
+    textNode,
+   })),
+  );
+
+  expect(applied).toBe(2);
+  expect(document.querySelectorAll('.judollens-detected')).toHaveLength(2);
+ });
 
   it('injects scoped overlay styles only once', () => {
     ensureJudolLensOverlayStyles();

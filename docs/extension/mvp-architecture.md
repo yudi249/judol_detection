@@ -22,9 +22,9 @@ Target page DOM
 
 ```mermaid
 flowchart LR
-    page["Target Web Page DOM<br/>YouTube / Telegram Web / X<br/>Text nodes + dynamic content"]
-    content["Content Script (WXT)<br/>TreeWalker DOM scan<br/>MutationObserver<br/>Blur / overlay<br/>Unicode highlight"]
-    background["Background Service Worker<br/>Typed messaging<br/>Batch coordinator<br/>Context menu"]
+    page["Target Page Sources<br/>YouTube / Telegram Web DOM text<br/>X allow-listed timeline GraphQL capture + tweet cards"]
+    content["Content Script (WXT)<br/>TreeWalker DOM scan<br/>X status-ID reconciliation<br/>Blur / overlay<br/>Unicode highlight"]
+    background["Background Service Worker<br/>Typed messaging<br/>Batch coordinator + X capture<br/>Context menu"]
     predictor["Predictor Layer<br/>Mock predictor (MVP)<br/>FastAPI /predict/batch (later)"]
     storage["WXT Storage<br/>Settings<br/>Session stats<br/>Detection logs"]
     react["React UI Pages<br/>Popup<br/>Options<br/>Log page<br/>Manual analysis"]
@@ -65,19 +65,35 @@ processed-node tracking so unchanged nodes are not rescanned. JudolLens overlay
 nodes are ignored to prevent feedback loops. The content script still does not
 write storage or run prediction directly.
 
+On X/Twitter, the content script does not independently scan tweet text nodes.
+It subscribes to the background's ephemeral allow-listed X timeline GraphQL
+capture: `HomeTimeline`, `SearchTimeline`, `UserOriginalsTimeline`,
+`UserRepostsTimeline`, `UserVideoTimeline`, `UserPhotoTimeline`,
+`UserRepliesTimeline`, and `TweetDetail`. The background accepts only successful
+responses for those operations, extracts complete `{ id, text }` records,
+and routes them through the same generic prediction batch path. The content
+script retains a bounded in-memory set of positive prediction results and
+reconciles each result only with an `article[data-testid="tweet"]` having the
+matching numeric status ID. It applies the configured censor action: `blur`
+preserves the card with an overlay, `warn` adds a compact pointer-transparent
+`Terdeteksi JudolLens` badge without obscuring its text, and `hide` removes the
+whole matching card. Stats, logs, model metadata, and API semantics remain
+shared; raw response payloads and tweet text are not persisted.
+
 ### Background Service Worker
 
 Responsibilities:
 
 - receive `prediction:batch` and `prediction:manual` messages
-- call the mock predictor first, then later FastAPI `/predict/batch`
+- select the offline mock predictor or the generated-client FastAPI gateway from stored settings
+- make all API calls only from the background service worker
 - save detection logs and session stats
 - expose settings/log data to React pages
 - register context menu actions for manual analysis
 
-The predictor boundary must be swappable. UI and content scripts should not know whether results came from mock logic or FastAPI.
+The predictor boundary is swappable. UI and content scripts do not know whether results came from mock logic or FastAPI. In `api` mode, the background maps camelCase extension state to the canonical snake_case OpenAPI wire contract, chunks batches, applies the bounded retry policy, and preserves terminal API failures as errors rather than treating them as `non_judol`. The FastAPI server owns threshold-based labels; mock remains the offline deterministic baseline.
 
-EXT-007 implements the first background coordinator: it receives typed scan batches, runs the mock predictor, updates session stats and bounded detection logs, and returns batch prediction responses. It does not apply page overlays; content-script DOM mutation starts in EXT-008.
+The API transport and its automated contract tests are complete. A manifest-valid sampled baseline now proves the real-server API-mode path, including DOM overlay, non-mock model metadata, latency, terminal 503 handling, and screenshot evidence. This does not make the sampled artifact final: final-model claims remain blocked on human-annotated `dataset_final.xlsx`; React/content-script changes are not required for that training cutover.
 
 ### React UI
 
@@ -193,7 +209,7 @@ Out of scope for MVP:
 8. Persist session stats and bounded logs.
 9. Add log page and options page.
 10. Add manual analysis context menu.
-11. Integrate FastAPI `/predict/batch`.
+11. Implement the contract-first FastAPI gateway and verify generated-client compatibility.
 
 ## Evaluation Hooks
 
