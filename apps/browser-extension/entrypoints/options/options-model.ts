@@ -5,6 +5,8 @@ import {
   type SessionStats,
 } from '../../src/shared';
 
+const INDONESIAN_NUMBER_FORMATTER = new Intl.NumberFormat('id-ID');
+
 export type PlatformOption = {
   key: keyof PlatformScope;
   label: string;
@@ -42,16 +44,16 @@ const PLATFORM_LABELS: Record<keyof PlatformScope, string> = {
   youtube: 'YouTube',
   telegram: 'Telegram Web',
   x: 'X/Twitter',
-  simulation: 'Simulation',
-  otherSites: 'Other sites',
+  simulation: 'Halaman simulasi',
+  otherSites: 'Situs lain',
 };
 
 const SESSION_PLATFORM_LABELS: Record<SessionStats['activePlatform'], string> = {
   youtube: 'YouTube',
   telegram: 'Telegram Web',
   x: 'X/Twitter',
-  simulation: 'Simulation',
-  unknown: 'Unknown page',
+  simulation: 'Halaman simulasi',
+  unknown: 'Halaman tidak dikenal',
 };
 
 export function buildOptionsViewModel(
@@ -86,8 +88,8 @@ export function buildOptionsViewModel(
       scannedCountLabel: formatCount(stats.scannedCount),
       detectedCountLabel: formatCount(stats.detectedCount),
       unicodeCountLabel: formatCount(stats.unicodeSuspiciousCount),
-      currentModeLabel: `${formatPredictionMode(settings.predictionMode)} mode`,
-      lastErrorLabel: stats.lastError?.message ?? 'No recent error',
+      currentModeLabel: formatPredictionMode(settings.predictionMode),
+      lastErrorLabel: stats.lastError?.message ?? 'Tidak ada galat terbaru',
     },
   };
 }
@@ -119,9 +121,9 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function formatCount(value: number): string {
-  return new Intl.NumberFormat('en-US').format(value);
+  return INDONESIAN_NUMBER_FORMATTER.format(value);
 }
 
 function formatPredictionMode(value: ExtensionSettings['predictionMode']): string {
-  return value === 'api' ? 'API' : 'Mock';
+  return value === 'api' ? 'Mode API' : 'Mode tiruan';
 }

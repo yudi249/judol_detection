@@ -36,12 +36,12 @@ test.describe('JudolLens popup extension', () => {
       await page.goto(`chrome-extension://${extensionId}/popup.html`);
 
       await expect(page.getByRole('heading', { name: 'JudolLens' })).toBeVisible();
-      await expect(page.getByText('Storage-backed MVP')).toBeVisible();
-      await expect(page.getByText('Session Evidence')).toBeVisible();
+      await expect(page.getByText('Dasbor perlindungan')).toBeVisible();
+      await expect(page.getByText('Bukti sesi')).toBeVisible();
       await expect(page.getByText('Belum ada deteksi')).toBeVisible();
-      const logsButton = page.getByRole('button', { name: 'Logs' });
-      const optionsButton = page.getByRole('button', { name: 'Options' });
-      const analyzeButton = page.getByRole('button', { name: 'Analyze' });
+      const logsButton = page.getByRole('button', { name: 'Log' });
+      const optionsButton = page.getByRole('button', { name: 'Pengaturan' });
+      const analyzeButton = page.getByRole('button', { name: 'Analisis' });
       await expect(logsButton).toBeEnabled();
       await expect(optionsButton).toBeEnabled();
       await expect(analyzeButton).toBeEnabled();
@@ -65,15 +65,17 @@ test.describe('JudolLens popup extension', () => {
       await analyzePage.close();
 
       const protection = page.getByRole('switch', {
-        name: 'Aktifkan mode sensor',
+        name: 'Aktifkan perlindungan',
       });
       await expect(protection).toHaveAttribute('aria-checked', 'true');
 
       await protection.click();
       await expect(protection).toHaveAttribute('aria-checked', 'false');
+      await expect(page.getByText('Nonaktif', { exact: true })).toBeVisible();
 
       await protection.click();
       await expect(protection).toHaveAttribute('aria-checked', 'true');
+      await expect(page.getByText('Aktif', { exact: true })).toBeVisible();
 
       await page.screenshot({
         path: popupScreenshotPath,

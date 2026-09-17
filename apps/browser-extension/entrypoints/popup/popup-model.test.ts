@@ -7,7 +7,7 @@ import {
 } from '../../src/shared';
 import {
   buildPopupViewModel,
-  getPageProtectionPatch,
+  getProtectionPatch,
 } from './popup-model';
 
 function createStats(patch: Partial<SessionStats> = {}): SessionStats {
@@ -73,21 +73,19 @@ describe('popup view model', () => {
       label: 'Aktif',
       description: 'Proteksi halaman aktif',
     });
-    expect(model.platformLabel).toBe('Unknown page');
-    expect(model.modeLabel).toBe('Mock mode');
-    expect(model.controls.pageProtectionEnabled).toBe(true);
-    expect(model.controls.autoBlurEnabled).toBe(true);
-    expect(model.controls.unicodeHighlightEnabled).toBe(true);
+    expect(model.platformLabel).toBe('Halaman tidak dikenal');
+    expect(model.modeLabel).toBe('Mode tiruan');
+    expect(model.controls.protectionEnabled).toBe(true);
     expect(model.metrics).toEqual([
-      { label: 'Scanned', value: '0', tone: 'scan' },
-      { label: 'Detected', value: '0', tone: 'detected' },
+      { label: 'Dipindai', value: '0', tone: 'scan' },
+      { label: 'Terdeteksi', value: '0', tone: 'detected' },
       { label: 'Unicode', value: '0', tone: 'unicode' },
-      { label: 'Last', value: '-', tone: 'neutral' },
+      { label: 'Terakhir', value: '-', tone: 'neutral' },
     ]);
     expect(model.recentDetection).toEqual({
       kind: 'empty',
       title: 'Belum ada deteksi',
-      description: 'Popup akan menampilkan evidence terbaru setelah scanner aktif.',
+      description: 'Popup akan menampilkan bukti terbaru setelah pemindai aktif.',
     });
   });
 
@@ -105,7 +103,7 @@ describe('popup view model', () => {
     );
 
     expect(model.status.kind).toBe('detected');
-    expect(model.platformLabel).toBe('Simulation');
+    expect(model.platformLabel).toBe('Halaman simulasi');
     expect(model.metrics.map((metric) => metric.value)).toEqual([
       '128',
       '7',
@@ -114,27 +112,26 @@ describe('popup view model', () => {
     ]);
     expect(model.recentDetection).toEqual({
       kind: 'detected',
-      riskLabel: 'HIGH',
+      riskLabel: 'TINGGI',
       confidenceLabel: '0.94',
-      snippet: 'b\u03BFnus sl\u03BFt gacor malam ini',
+      snippet: 'bοnus slοt gacor malam ini',
       matchedTerms: ['bonus', 'slot', 'gacor'],
-      unicodeLabel: '2 Unicode spans',
+      unicodeLabel: '2 bagian Unicode mencurigakan',
     });
   });
 
-  it('marks popup disabled when censor mode is none', () => {
+
+  it('marks popup disabled when protection is turned off', () => {
     const settings: ExtensionSettings = {
       ...defaultExtensionSettings,
-      censorMode: 'none',
-      autoBlur: false,
+      protectionEnabled: false,
     };
 
     const model = buildPopupViewModel(settings, createStats(), []);
 
     expect(model.status.kind).toBe('disabled');
     expect(model.status.label).toBe('Nonaktif');
-    expect(model.controls.pageProtectionEnabled).toBe(false);
-    expect(model.controls.autoBlurEnabled).toBe(false);
+    expect(model.controls.protectionEnabled).toBe(false);
   });
 
   it('surfaces a compact error state from session stats', () => {
@@ -153,19 +150,13 @@ describe('popup view model', () => {
 
     expect(model.status).toEqual({
       kind: 'error',
-      label: 'Error',
+      label: 'Galat',
       description: 'API tidak bisa dihubungi',
     });
   });
 
-  it('maps page protection toggle to the storage settings patch', () => {
-    expect(getPageProtectionPatch(false)).toEqual({
-      censorMode: 'none',
-      autoBlur: false,
-    });
-    expect(getPageProtectionPatch(true)).toEqual({
-      censorMode: 'blur',
-      autoBlur: true,
-    });
+  it('maps the master protection toggle to its dedicated settings patch', () => {
+    expect(getProtectionPatch(false)).toEqual({ protectionEnabled: false });
+    expect(getProtectionPatch(true)).toEqual({ protectionEnabled: true });
   });
 });

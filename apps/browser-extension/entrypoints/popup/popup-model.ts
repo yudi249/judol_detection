@@ -4,6 +4,8 @@ import type {
   SessionStats,
 } from '../../src/shared';
 
+const INDONESIAN_NUMBER_FORMATTER = new Intl.NumberFormat('id-ID');
+
 export type PopupStatusKind =
   | 'active'
   | 'detected'
@@ -20,12 +22,10 @@ export type PopupViewModel = {
   platformLabel: string;
   modeLabel: string;
   controls: {
-    pageProtectionEnabled: boolean;
-    autoBlurEnabled: boolean;
-    unicodeHighlightEnabled: boolean;
+    protectionEnabled: boolean;
   };
   metrics: Array<{
-    label: 'Scanned' | 'Detected' | 'Unicode' | 'Last';
+    label: 'Dipindai' | 'Terdeteksi' | 'Unicode' | 'Terakhir';
     value: string;
     tone: 'scan' | 'detected' | 'unicode' | 'neutral';
   }>;
@@ -50,22 +50,20 @@ export function buildPopupViewModel(
   stats: SessionStats,
   logs: DetectionLog[],
 ): PopupViewModel {
-  const pageProtectionEnabled = settings.censorMode !== 'none';
+  const protectionEnabled = settings.protectionEnabled;
   const recentLog = logs[0];
 
   return {
     status: buildStatus(settings, stats, recentLog),
     platformLabel: formatPlatform(stats.activePlatform),
-    modeLabel: `${capitalize(settings.predictionMode)} mode`,
+    modeLabel: settings.predictionMode === 'api' ? 'Mode API' : 'Mode tiruan',
     controls: {
-      pageProtectionEnabled,
-      autoBlurEnabled: settings.autoBlur,
-      unicodeHighlightEnabled: settings.highlightUnicode,
+      protectionEnabled,
     },
     metrics: [
-      { label: 'Scanned', value: formatCount(stats.scannedCount), tone: 'scan' },
+      { label: 'Dipindai', value: formatCount(stats.scannedCount), tone: 'scan' },
       {
-        label: 'Detected',
+        label: 'Terdeteksi',
         value: formatCount(stats.detectedCount),
         tone: 'detected',
       },
@@ -75,7 +73,7 @@ export function buildPopupViewModel(
         tone: 'unicode',
       },
       {
-        label: 'Last',
+        label: 'Terakhir',
         value:
           stats.lastScanTimeMs === undefined ? '-' : `${stats.lastScanTimeMs} ms`,
         tone: 'neutral',
@@ -84,25 +82,30 @@ export function buildPopupViewModel(
     recentDetection: recentLog
       ? {
           kind: 'detected',
-          riskLabel: recentLog.riskLevel.toUpperCase(),
+          riskLabel:
+            recentLog.riskLevel === 'high'
+              ? 'TINGGI'
+              : recentLog.riskLevel === 'medium'
+                ? 'SEDANG'
+                : 'RENDAH',
           confidenceLabel: recentLog.confidence.toFixed(2),
           snippet: recentLog.snippet,
           matchedTerms: recentLog.matchedTerms,
-          unicodeLabel: `${recentLog.unicodeAnalysis.suspiciousCount} Unicode spans`,
+          unicodeLabel: `${recentLog.unicodeAnalysis.suspiciousCount} bagian Unicode mencurigakan`,
         }
       : {
           kind: 'empty',
           title: 'Belum ada deteksi',
           description:
-            'Popup akan menampilkan evidence terbaru setelah scanner aktif.',
+            'Popup akan menampilkan bukti terbaru setelah pemindai aktif.',
         },
   };
 }
 
-export function getPageProtectionPatch(enabled: boolean): Partial<ExtensionSettings> {
-  return enabled
-    ? { censorMode: 'blur', autoBlur: true }
-    : { censorMode: 'none', autoBlur: false };
+export function getProtectionPatch(
+  enabled: boolean,
+): Partial<ExtensionSettings> {
+  return { protectionEnabled: enabled };
 }
 
 function buildStatus(
@@ -113,12 +116,12 @@ function buildStatus(
   if (stats.lastError || stats.protectionStatus === 'error') {
     return {
       kind: 'error',
-      label: 'Error',
+      label: 'Galat',
       description: stats.lastError?.message ?? 'Status proteksi bermasalah',
     };
   }
 
-  if (settings.censorMode === 'none' || stats.protectionStatus === 'disabled') {
+  if (!settings.protectionEnabled || stats.protectionStatus === 'disabled') {
     return {
       kind: 'disabled',
       label: 'Nonaktif',
@@ -129,8 +132,8 @@ function buildStatus(
   if (stats.protectionStatus === 'unsupported') {
     return {
       kind: 'unsupported',
-      label: 'Unsupported',
-      description: 'Halaman ini belum masuk scope scanning',
+      label: 'Tidak didukung',
+      description: 'Halaman ini belum termasuk cakupan pemindaian',
     };
   }
 
@@ -138,7 +141,7 @@ function buildStatus(
     return {
       kind: 'detected',
       label: 'Terdeteksi',
-      description: 'Evidence judol tersedia di storage',
+      description: 'Bukti judol tersedia di penyimpanan',
     };
   }
 
@@ -154,17 +157,13 @@ function formatPlatform(platform: SessionStats['activePlatform']): string {
     youtube: 'YouTube',
     telegram: 'Telegram Web',
     x: 'X/Twitter',
-    simulation: 'Simulation',
-    unknown: 'Unknown page',
+    simulation: 'Halaman simulasi',
+    unknown: 'Halaman tidak dikenal',
   };
 
   return labels[platform];
 }
 
 function formatCount(value: number): string {
-  return new Intl.NumberFormat('en-US').format(value);
-}
-
-function capitalize(value: string): string {
-  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+  return INDONESIAN_NUMBER_FORMATTER.format(value);
 }

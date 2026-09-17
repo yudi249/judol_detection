@@ -1,5 +1,7 @@
 import type { DetectionLog, Platform, RiskLevel } from '../../src/shared';
 
+const INDONESIAN_NUMBER_FORMATTER = new Intl.NumberFormat('id-ID');
+
 export type LogFilters = {
   query: string;
   platform: Platform | 'all';
@@ -98,15 +100,21 @@ export function formatPlatform(platform: Platform): string {
     youtube: 'YouTube',
     telegram: 'Telegram Web',
     x: 'X/Twitter',
-    simulation: 'Simulation',
-    unknown: 'Unknown',
+    simulation: 'Halaman simulasi',
+    unknown: 'Tidak dikenal',
   };
 
   return labels[platform];
 }
 
 export function formatRisk(riskLevel: RiskLevel): string {
-  return riskLevel.toUpperCase();
+  const labels: Record<RiskLevel, string> = {
+    high: 'TINGGI',
+    medium: 'SEDANG',
+    low: 'RENDAH',
+  };
+
+  return labels[riskLevel];
 }
 
 function toLogRow(log: DetectionLog): LogRow {
@@ -119,7 +127,7 @@ function toLogRow(log: DetectionLog): LogRow {
     confidenceLabel: formatConfidence(log.confidence),
     unicodeLabel: String(log.unicodeAnalysis.suspiciousCount),
     snippet: log.snippet,
-    actionLabel: log.action.toUpperCase(),
+    actionLabel: formatAction(log.action),
   };
 }
 
@@ -137,5 +145,16 @@ function formatTime(timestamp: string): string {
 }
 
 function formatCount(value: number): string {
-  return new Intl.NumberFormat('en-US').format(value);
+  return INDONESIAN_NUMBER_FORMATTER.format(value);
+}
+
+function formatAction(action: DetectionLog['action']): string {
+  const labels: Record<DetectionLog['action'], string> = {
+    blur: 'Buram',
+    warn: 'Peringatan',
+    hide: 'Sembunyikan',
+    none: 'Tidak ada',
+  };
+
+  return labels[action];
 }

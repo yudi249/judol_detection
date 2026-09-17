@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JudolLens Simulation</title>
+    <title>Simulasi JudolLens</title>
     <style>
       :root {
         color-scheme: light;
@@ -139,19 +139,19 @@
     <header>
       <div class="shell masthead">
         <div>
-          <h1>JudolLens Simulation</h1>
-          <p class="subtitle">Local target page for MVP scan, overlay, and dynamic-content evaluation.</p>
+          <h1>Simulasi JudolLens</h1>
+          <p class="subtitle">Halaman target lokal untuk mengevaluasi pemindaian MVP, overlay, dan konten dinamis.</p>
         </div>
         <button id="insert-dynamic" type="button">Tambah komentar dinamis</button>
       </div>
     </header>
 
-    <main class="shell" aria-label="Simulation feed">
+    <main class="shell" aria-label="Umpan simulasi">
       <p class="note">
-        Halaman ini sengaja berupa web page biasa di localhost agar content script JudolLens memproses DOM target secara realistis.
+        Halaman ini sengaja berupa halaman web biasa di localhost agar skrip konten JudolLens memproses DOM target secara realistis.
       </p>
 
-      <h2 class="section-title">Baseline Feed</h2>
+      <h2 class="section-title">Umpan Dasar</h2>
 
       <article data-case-id="clean" data-expected-label="non_judol">
         <div class="meta"><span class="dot"></span><span>Forum Kampus</span></div>
@@ -169,13 +169,13 @@
       </article>
 
       <article data-case-id="unicode-judol" data-expected-label="judol">
-        <div class="meta"><span class="dot"></span><span>Komentar Obfuscated</span></div>
+        <div class="meta"><span class="dot"></span><span>Komentar Terobfuskasi</span></div>
         <p class="post-text">bοnus slοt gacor deposit 10k</p>
       </article>
 
-      <h2 class="section-title">Mixed Feed</h2>
+      <h2 class="section-title">Umpan Campuran</h2>
 
-      <section class="mixed-feed" aria-label="Mixed simulation cases">
+      <section class="mixed-feed" aria-label="Kasus simulasi campuran">
         <article data-case-id="mixed-clean" data-expected-label="non_judol">
           <div class="meta"><span class="dot"></span><span>Diskusi Umum</span></div>
           <p class="post-text">Materi presentasi sudah saya kirim ke grup kelas.</p>

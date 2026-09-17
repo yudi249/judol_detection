@@ -69,7 +69,7 @@ describe('manual analysis model', () => {
     expect(model.hasResult).toBe(false);
     expect(model.canAnalyze).toBe(false);
     expect(model.canSave).toBe(false);
-    expect(model.emptyMessage).toBe('Paste or select text to analyze.');
+    expect(model.emptyMessage).toBe('Tempel atau pilih teks untuk dianalisis.');
   });
 
   it('formats a high-risk judol result with Unicode evidence', () => {
@@ -87,8 +87,8 @@ describe('manual analysis model', () => {
     expect(model.canSave).toBe(true);
     expect(model.result?.label).toBe('JUDOL');
     expect(model.result?.confidence).toBe('0.94');
-    expect(model.result?.risk).toBe('HIGH');
-    expect(model.result?.action).toBe('blur');
+    expect(model.result?.risk).toBe('TINGGI');
+    expect(model.result?.action).toBe('Buram');
     expect(model.result?.matchedTerms).toEqual(['bonus', 'slot', 'gacor']);
     expect(model.result?.unicodeRows).toEqual([
       {
@@ -99,8 +99,8 @@ describe('manual analysis model', () => {
       },
     ]);
     expect(model.result?.reasonRows.map((reason) => reason.label)).toEqual([
-      'keyword: slot',
-      'unicode: homoglyph',
+      'Kata kunci: slot',
+      'Unicode: homoglyph',
     ]);
   });
 
@@ -123,14 +123,14 @@ describe('manual analysis model', () => {
       }),
     );
 
-    expect(model.result?.label).toBe('NON_JUDOL');
-    expect(model.result?.risk).toBe('LOW');
+    expect(model.result?.label).toBe('BUKAN JUDOL');
+    expect(model.result?.risk).toBe('RENDAH');
     expect(model.canSave).toBe(true);
   });
 
   it('formats confidence and risk labels consistently', () => {
     expect(formatManualConfidence(0.8)).toBe('0.80');
     expect(formatManualConfidence(1)).toBe('1.00');
-    expect(formatManualRisk('medium')).toBe('MEDIUM');
+    expect(formatManualRisk('medium')).toBe('SEDANG');
   });
 });

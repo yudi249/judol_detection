@@ -18,10 +18,12 @@ describe('logs model', () => {
       totalLogs: '3',
       highRisk: '2',
       unicodeSuspicious: '1',
-      latestPlatform: 'Simulation',
+      latestPlatform: 'Halaman simulasi',
     });
     expect(model.rows).toHaveLength(3);
     expect(model.rows[0].label).toBe('JUDOL');
+    expect(model.rows[0].riskLabel).toBe('TINGGI');
+    expect(model.rows[0].actionLabel).toBe('Buram');
     expect(model.selectedLog?.id).toBe('log-newest');
     expect(model.emptyState).toBe(false);
   });
@@ -44,7 +46,7 @@ describe('logs model', () => {
     expect(model.summary.totalLogs).toBe('0');
     expect(formatConfidence(0.943)).toBe('0.94');
     expect(formatPlatform('x')).toBe('X/Twitter');
-    expect(formatRisk('high')).toBe('HIGH');
+    expect(formatRisk('high')).toBe('TINGGI');
   });
 });
 

@@ -42,7 +42,7 @@ type OptionsData = {
 function App() {
   const [data, setData] = useState<OptionsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [statusMessage, setStatusMessage] = useState('Loading options');
+  const [statusMessage, setStatusMessage] = useState('Memuat pengaturan');
 
   useEffect(() => {
     void loadState();
@@ -66,7 +66,7 @@ function App() {
       settings: response.payload.settings,
       stats: response.payload.stats,
     });
-    setStatusMessage('Options loaded');
+    setStatusMessage('Pengaturan dimuat');
     setIsLoading(false);
   }
 
@@ -80,7 +80,7 @@ function App() {
       settings: response.payload.settings,
       stats: response.payload.stats,
     });
-    setStatusMessage('Settings saved');
+    setStatusMessage('Pengaturan disimpan');
   }
 
   if (isLoading || !data || !model) {
@@ -88,7 +88,7 @@ function App() {
       <main className="min-h-screen bg-slate-50 p-8 text-slate-950">
         <div className="mx-auto flex max-w-5xl items-center gap-3 rounded-lg border bg-white p-5 shadow-sm">
           <ActivityIcon aria-hidden="true" className="size-5 animate-spin" />
-          <span>Loading JudolLens options</span>
+          <span>Memuat pengaturan JudolLens</span>
         </div>
       </main>
     );
@@ -100,10 +100,10 @@ function App() {
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold tracking-normal">
-              JudolLens Options
+              Pengaturan JudolLens
             </h1>
             <p className="mt-1 text-sm text-slate-600">
-              Configure protection behavior and research evidence storage.
+              Atur perilaku perlindungan dan penyimpanan bukti riset.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -113,15 +113,15 @@ function App() {
               variant="outline"
             >
               <RotateCcwIcon aria-hidden="true" className="size-4" />
-              Reset defaults
+              Pulihkan bawaan
             </Button>
           </div>
         </header>
 
         <section className="grid gap-5 lg:grid-cols-[1.4fr_0.8fr]">
           <div className="flex flex-col gap-5">
-            <Panel title="Detection Mode" icon={SettingsIcon}>
-              <Field label="Prediction mode">
+            <Panel title="Mode deteksi" icon={SettingsIcon}>
+              <Field label="Mode prediksi">
                 <Select
                   value={model.detectionMode.predictionMode}
                   onValueChange={(value) =>
@@ -135,13 +135,13 @@ function App() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value="mock">Mock</SelectItem>
+                      <SelectItem value="mock">Tiruan</SelectItem>
                       <SelectItem value="api">API</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="API endpoint">
+              <Field label="Endpoint API">
                 <Input
                   aria-label="API endpoint"
                   value={model.detectionMode.apiEndpoint}
@@ -150,10 +150,10 @@ function App() {
                   }
                 />
               </Field>
-              <Field label={`Threshold ${model.detectionMode.thresholdPercent}%`}>
+              <Field label={`Ambang ${model.detectionMode.thresholdPercent}%`}>
                 <div className="flex items-center gap-3">
                   <Slider
-                    aria-label="Confidence threshold"
+                    aria-label="Ambang keyakinan"
                     className="flex-1"
                     max={99}
                     min={10}
@@ -164,7 +164,7 @@ function App() {
                     }
                   />
                   <Input
-                    aria-label="Threshold percent"
+                    aria-label="Persentase ambang"
                     className="w-24"
                     max={99}
                     min={10}
@@ -178,7 +178,7 @@ function App() {
                   />
                 </div>
               </Field>
-              <Field label="Censor mode">
+              <Field label="Mode sensor">
                 <Select
                   value={model.detectionMode.censorMode}
                   onValueChange={(value) =>
@@ -192,37 +192,37 @@ function App() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value="blur">Blur</SelectItem>
-                      <SelectItem value="warn">Warn</SelectItem>
-                      <SelectItem value="hide">Hide</SelectItem>
-                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="blur">Buram</SelectItem>
+                      <SelectItem value="warn">Peringatan</SelectItem>
+                      <SelectItem value="hide">Sembunyikan</SelectItem>
+                      <SelectItem value="none">Tidak ada</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
               </Field>
               <div className="rounded-md border bg-slate-50 p-3 text-sm text-slate-600">
-                API health check coming in a later backend milestone.
+                Pemeriksaan kesehatan API tersedia pada tahap backend berikutnya.
               </div>
             </Panel>
 
-            <Panel title="Protection Behavior" icon={ShieldCheckIcon}>
+            <Panel title="Perilaku perlindungan" icon={ShieldCheckIcon}>
               <SwitchRow
                 checked={model.protection.autoBlur}
-                label="Auto blur"
+                label="Buram otomatis"
                 onCheckedChange={(checked) =>
                   void patchSettings({ autoBlur: checked })
                 }
               />
               <SwitchRow
                 checked={model.protection.highlightUnicode}
-                label="Highlight Unicode"
+                label="Sorot Unicode"
                 onCheckedChange={(checked) =>
                   void patchSettings({ highlightUnicode: checked })
                 }
               />
             </Panel>
 
-            <Panel title="Platform Scope" icon={ShieldCheckIcon}>
+            <Panel title="Cakupan platform" icon={ShieldCheckIcon}>
               {model.platforms.map((platform) => (
                 <SwitchRow
                   checked={platform.enabled}
@@ -242,10 +242,10 @@ function App() {
           </div>
 
           <aside className="flex flex-col gap-5">
-            <Panel title="Research & Privacy" icon={SaveIcon}>
-              <Field label="Max logs">
+            <Panel title="Riset dan privasi" icon={SaveIcon}>
+              <Field label="Jumlah log maksimum">
                 <Input
-                  aria-label="Max logs"
+                  aria-label="Jumlah log maksimum"
                   min={10}
                   max={1000}
                   type="number"
@@ -257,24 +257,24 @@ function App() {
               </Field>
               <SwitchRow
                 checked={model.researchPrivacy.storeBoundedEvidence}
-                label="Store bounded evidence"
+                label="Simpan bukti terbatas"
                 onCheckedChange={(checked) =>
                   void patchSettings({ storeBoundedEvidence: checked })
                 }
               />
               <SwitchRow
                 checked={model.researchPrivacy.storeSourceUrl}
-                label="Store source URL"
+                label="Simpan URL sumber"
                 onCheckedChange={(checked) =>
                   void patchSettings({ storeSourceUrl: checked })
                 }
               />
             </Panel>
 
-            <Panel title="Diagnostics" icon={ActivityIcon}>
-              <Metric label="Active platform" value={model.diagnostics.activePlatformLabel} />
-              <Metric label="Scanned" value={model.diagnostics.scannedCountLabel} />
-              <Metric label="Detected" value={model.diagnostics.detectedCountLabel} />
+            <Panel title="Diagnostik" icon={ActivityIcon}>
+              <Metric label="Platform aktif" value={model.diagnostics.activePlatformLabel} />
+              <Metric label="Dipindai" value={model.diagnostics.scannedCountLabel} />
+              <Metric label="Terdeteksi" value={model.diagnostics.detectedCountLabel} />
               <Metric label="Unicode" value={model.diagnostics.unicodeCountLabel} />
               <Metric label="Mode" value={model.diagnostics.currentModeLabel} />
               <Separator />

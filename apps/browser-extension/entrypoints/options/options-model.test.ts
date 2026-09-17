@@ -35,12 +35,12 @@ describe('options model', () => {
       enabled: false,
     });
     expect(model.diagnostics).toMatchObject({
-      activePlatformLabel: 'Simulation',
+      activePlatformLabel: 'Halaman simulasi',
       scannedCountLabel: '12',
       detectedCountLabel: '3',
       unicodeCountLabel: '2',
-      currentModeLabel: 'API mode',
-      lastErrorLabel: 'No recent error',
+      currentModeLabel: 'Mode API',
+      lastErrorLabel: 'Tidak ada galat terbaru',
     });
   });
 

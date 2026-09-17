@@ -3,8 +3,13 @@ import { createServer, type Server } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
+export type LaunchExtensionContextOptions = {
+  hostResolverRules?: string;
+};
+
 export async function launchExtensionContext(
   extensionPath: string,
+  options: LaunchExtensionContextOptions = {},
 ): Promise<{
   context: BrowserContext;
   extensionId: string;
@@ -14,6 +19,9 @@ export async function launchExtensionContext(
     args: [
       `--disable-extensions-except=${extensionPath}`,
       `--load-extension=${extensionPath}`,
+      ...(options.hostResolverRules
+        ? [`--host-resolver-rules=${options.hostResolverRules}`]
+        : []),
     ],
   });
 

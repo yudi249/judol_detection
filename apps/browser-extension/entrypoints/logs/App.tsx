@@ -37,6 +37,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   buildLogsViewModel,
   formatPlatform,
+  formatRisk,
   type LogFilters,
 } from './logs-model';
 
@@ -85,40 +86,38 @@ function App() {
       <div className="mx-auto flex max-w-7xl flex-col gap-5 p-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold tracking-normal">
-              JudolLens Logs
-            </h1>
+            <h1 className="text-2xl font-bold tracking-normal">Log JudolLens</h1>
             <p className="mt-1 text-sm text-slate-600">
-              Review bounded detection evidence for debugging and thesis evaluation.
+              Tinjau bukti deteksi terbatas untuk debugging dan evaluasi skripsi.
             </p>
           </div>
           <Button onClick={() => void clearLogs()} variant="outline">
             <ListXIcon aria-hidden="true" className="size-4" />
-            Clear logs
+            Hapus log
           </Button>
         </header>
 
         <section className="grid gap-3 md:grid-cols-4">
-          <SummaryCard label="Total logs" value={model.summary.totalLogs} />
-          <SummaryCard label="High risk" value={model.summary.highRisk} />
+          <SummaryCard label="Total log" value={model.summary.totalLogs} />
+          <SummaryCard label="Risiko tinggi" value={model.summary.highRisk} />
           <SummaryCard label="Unicode" value={model.summary.unicodeSuspicious} />
-          <SummaryCard label="Latest platform" value={model.summary.latestPlatform} />
+          <SummaryCard label="Platform terbaru" value={model.summary.latestPlatform} />
         </section>
 
         <section className="grid gap-5 lg:grid-cols-[1fr_360px]">
           <div className="flex flex-col gap-4 rounded-lg border bg-white p-4 shadow-sm">
             <div className="grid gap-3 md:grid-cols-[1fr_180px_180px_160px]">
               <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-                Search
+                Cari
                 <div className="relative">
                   <SearchIcon
                     aria-hidden="true"
                     className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400"
                   />
                   <Input
-                    aria-label="Search logs"
+                    aria-label="Cari log"
                     className="pl-9"
-                    placeholder="snippet or term"
+                    placeholder="cuplikan atau istilah"
                     value={filters.query}
                     onChange={(event) =>
                       setFilters({ ...filters, query: event.target.value })
@@ -142,7 +141,7 @@ function App() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="all">Semua</SelectItem>
                       {(['simulation', 'youtube', 'telegram', 'x', 'unknown'] as Platform[]).map(
                         (platform) => (
                           <SelectItem key={platform} value={platform}>
@@ -155,7 +154,7 @@ function App() {
                 </Select>
               </label>
               <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-                Risk
+                Risiko
                 <Select
                   value={filters.riskLevel}
                   onValueChange={(value) =>
@@ -170,20 +169,19 @@ function App() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="all">Semua</SelectItem>
+                      <SelectItem value="high">Tinggi</SelectItem>
+                      <SelectItem value="medium">Sedang</SelectItem>
+                      <SelectItem value="low">Rendah</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
               </label>
               <div className="flex items-end">
                 <label className="flex h-9 w-full items-center justify-between gap-2 rounded-md border px-3 text-sm font-medium text-slate-700">
-                  Unicode only
+                  Hanya Unicode
                   <Switch
-                    aria-label="Unicode only"
-                    checked={filters.unicodeOnly}
+                    aria-label="Hanya Unicode"
                     onCheckedChange={(checked) =>
                       setFilters({ ...filters, unicodeOnly: checked })
                     }
@@ -195,21 +193,21 @@ function App() {
             <Separator />
 
             {isLoading ? (
-              <EmptyState text="Loading logs" />
+              <EmptyState text="Memuat log" />
             ) : model.rows.length === 0 ? (
-              <EmptyState text="No detection logs match the current filters" />
+              <EmptyState text="Tidak ada log deteksi yang cocok dengan filter saat ini" />
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Time</TableHead>
+                    <TableHead>Waktu</TableHead>
                     <TableHead>Platform</TableHead>
                     <TableHead>Label</TableHead>
-                    <TableHead>Risk</TableHead>
-                    <TableHead>Confidence</TableHead>
+                    <TableHead>Risiko</TableHead>
+                    <TableHead>Keyakinan</TableHead>
                     <TableHead>Unicode</TableHead>
-                    <TableHead>Snippet</TableHead>
-                    <TableHead>Action</TableHead>
+                    <TableHead>Cuplikan</TableHead>
+                    <TableHead>Tindakan</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -270,7 +268,7 @@ function DetailPanel({ log }: { log?: DetectionLog }) {
       <aside className="rounded-lg border bg-white p-5 shadow-sm">
         <div className="flex items-center gap-2 text-slate-600">
           <FileTextIcon aria-hidden="true" className="size-4" />
-          <p className="text-sm">Select a log row to inspect evidence.</p>
+          <p className="text-sm">Pilih baris log untuk memeriksa bukti.</p>
         </div>
       </aside>
     );
@@ -280,14 +278,14 @@ function DetailPanel({ log }: { log?: DetectionLog }) {
     <aside className="flex flex-col gap-4 rounded-lg border bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-bold uppercase tracking-[0.08em] text-slate-700">
-          Detail Panel
+          Panel detail
         </h2>
-        <Badge variant="secondary">{log.riskLevel.toUpperCase()}</Badge>
+        <Badge variant="secondary">{formatRisk(log.riskLevel)}</Badge>
       </div>
 
       <section>
         <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
-          Snippet
+          Cuplikan
         </h3>
         <p className="mt-2 rounded-md bg-slate-50 p-3 text-sm leading-6 text-slate-800">
           {log.snippet}
@@ -296,7 +294,7 @@ function DetailPanel({ log }: { log?: DetectionLog }) {
 
       <section>
         <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
-          Matched terms
+          Istilah yang cocok
         </h3>
         <div className="mt-2 flex flex-wrap gap-2">
           {log.matchedTerms.map((term) => (
@@ -309,11 +307,11 @@ function DetailPanel({ log }: { log?: DetectionLog }) {
 
       <section>
         <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
-          Unicode evidence
+          Bukti Unicode
         </h3>
         <div className="mt-2 flex flex-col gap-2">
           {log.unicodeAnalysis.spans.length === 0 ? (
-            <p className="text-sm text-slate-600">No suspicious Unicode spans.</p>
+            <p className="text-sm text-slate-600">Tidak ada bagian Unicode mencurigakan.</p>
           ) : (
             log.unicodeAnalysis.spans.map((span, index) => (
               <div
@@ -339,14 +337,14 @@ function DetailPanel({ log }: { log?: DetectionLog }) {
 
       <section className="grid gap-2 text-sm text-slate-700">
         <Meta label="Model" value={`${log.model.name} ${log.model.version}`} />
-        <Meta label="Architecture" value={log.model.architecture} />
-        <Meta label="Request" value={log.requestId ?? '-'} />
+        <Meta label="Arsitektur" value={log.model.architecture} />
+        <Meta label="Permintaan" value={log.requestId ?? '-'} />
         <Meta label="Item" value={log.itemId ?? '-'} />
       </section>
 
       <div className="flex items-center gap-2 rounded-md bg-slate-50 p-3 text-sm text-slate-600">
         <ShieldAlertIcon aria-hidden="true" className="size-4" />
-        Evidence is bounded; full page text is not stored.
+        Bukti dibatasi; teks halaman lengkap tidak disimpan.
       </div>
     </aside>
   );

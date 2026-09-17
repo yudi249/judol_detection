@@ -29,7 +29,7 @@ import {
 } from '@/storage';
 import {
   buildPopupViewModel,
-  getPageProtectionPatch,
+  getProtectionPatch,
   type PopupStatusKind,
 } from './popup-model';
 
@@ -107,12 +107,8 @@ function App() {
                 <ShieldCheckIcon aria-hidden="true" className="size-4" />
               </div>
               <div>
-                <h1 className="text-base font-semibold leading-none">
-                  JudolLens
-                </h1>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Storage-backed MVP
-                </p>
+                <h1 className="text-base font-semibold leading-none">JudolLens</h1>
+                <p className="mt-1 text-xs text-muted-foreground">Dasbor perlindungan</p>
               </div>
             </div>
 
@@ -120,16 +116,16 @@ function App() {
               kind={model?.status.kind ?? 'disabled'}
               label={
                 isLoading
-                  ? 'Loading'
+                  ? 'Memuat'
                   : errorMessage
-                    ? 'Error'
-                    : (model?.status.label ?? 'Unknown')
+                    ? 'Galat'
+                    : (model?.status.label ?? 'Tidak diketahui')
               }
             />
           </header>
 
           <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-            <span>{model?.platformLabel ?? 'Loading page'}</span>
+            <span>{model?.platformLabel ?? 'Memuat halaman'}</span>
             <span className="text-active-cyan">{model?.modeLabel ?? '-'}</span>
           </div>
         </section>
@@ -142,35 +138,19 @@ function App() {
           ) : model ? (
             <>
               <section className="grid gap-2">
-                <SectionTitle>Protection</SectionTitle>
+                <SectionTitle>Perlindungan</SectionTitle>
                 <ToggleRow
-                  label="Aktifkan mode sensor"
-                  description="Terapkan mode sensor pilihan Options"
-                  checked={model.controls.pageProtectionEnabled}
+                  label="Aktifkan perlindungan"
+                  description="Pindai dan sensor konten judol secara otomatis"
+                  checked={model.controls.protectionEnabled}
                   onCheckedChange={(checked) =>
-                    void patchSettings(getPageProtectionPatch(checked))
-                  }
-                />
-                <ToggleRow
-                  label="Blur otomatis"
-                  description="Opsional untuk deteksi risiko tinggi"
-                  checked={model.controls.autoBlurEnabled}
-                  onCheckedChange={(checked) =>
-                    void patchSettings({ autoBlur: checked })
-                  }
-                />
-                <ToggleRow
-                  label="Highlight Unicode"
-                  description="Tandai homoglyph dan karakter mencurigakan"
-                  checked={model.controls.unicodeHighlightEnabled}
-                  onCheckedChange={(checked) =>
-                    void patchSettings({ highlightUnicode: checked })
+                    void patchSettings(getProtectionPatch(checked))
                   }
                 />
               </section>
 
               <section className="grid gap-2">
-                <SectionTitle>Session Evidence</SectionTitle>
+                <SectionTitle>Bukti sesi</SectionTitle>
                 <div className="grid grid-cols-4 gap-2">
                   {model.metrics.map((metric) => (
                     <MetricCard key={metric.label} metric={metric} />
@@ -180,10 +160,10 @@ function App() {
 
               <section className="grid gap-2">
                 <div className="flex items-center justify-between gap-2">
-                  <SectionTitle>Recent Detection</SectionTitle>
+                  <SectionTitle>Deteksi terbaru</SectionTitle>
                   {model.recentDetection.kind === 'detected' ? (
                     <span className="text-xs text-muted-foreground">
-                      1 of {recentLogCount}
+                      1 dari {recentLogCount}
                     </span>
                   ) : null}
                 </div>
@@ -195,7 +175,7 @@ function App() {
               <footer className="grid grid-cols-3 gap-2">
                 <NavigationButton
                   icon={FileTextIcon}
-                  label="Logs"
+                  label="Log"
                   onClick={() =>
                     void browser.tabs.create({
                       url: browser.runtime.getURL('/logs.html'),
@@ -204,12 +184,12 @@ function App() {
                 />
                 <NavigationButton
                   icon={SettingsIcon}
-                  label="Options"
+                  label="Pengaturan"
                   onClick={() => void browser.runtime.openOptionsPage()}
                 />
                 <NavigationButton
                   icon={FileSearchIcon}
-                  label="Analyze"
+                  label="Analisis"
                   onClick={() =>
                     void browser.tabs.create({
                       url: browser.runtime.getURL('/manual-analysis.html'),
@@ -381,7 +361,7 @@ function NavigationButton({
           {label}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>Open {label}</TooltipContent>
+      <TooltipContent>Buka {label}</TooltipContent>
     </Tooltip>
   );
 }
@@ -390,7 +370,7 @@ function LoadingPanel() {
   return (
     <div className="flex min-h-36 items-center justify-center gap-2 rounded-lg border border-white/10 bg-graphite-950/70 text-sm text-muted-foreground">
       <Loader2Icon aria-hidden="true" className="size-4 animate-spin" />
-      Loading JudolLens storage
+      Memuat penyimpanan JudolLens
     </div>
   );
 }
@@ -417,7 +397,7 @@ function ErrorPanel({
       </div>
       <Button onClick={onRetry} size="sm" variant="secondary">
         <ActivityIcon aria-hidden="true" className="size-4" />
-        Retry
+        Coba lagi
       </Button>
     </div>
   );

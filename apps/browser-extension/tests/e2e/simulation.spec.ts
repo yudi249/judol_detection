@@ -28,7 +28,9 @@ test.describe('JudolLens simulation page', () => {
 
       await page.goto(url);
 
-      await expect(page.getByRole('heading', { name: 'JudolLens Simulation' })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'Simulasi JudolLens' }),
+      ).toBeVisible();
       await expect(page.locator('.judollens-detected')).toHaveCount(4);
       await expect(page.locator('[data-case-id="clean"] .judollens-detected')).toHaveCount(0);
       await expect(page.locator('[data-case-id="false-positive"] .judollens-detected')).toHaveCount(0);

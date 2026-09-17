@@ -19,16 +19,16 @@ test.describe('JudolLens manual analysis page', () => {
       await page.goto(`chrome-extension://${extensionId}/manual-analysis.html`);
 
       await expect(
-        page.getByRole('heading', { name: 'JudolLens Manual Analysis' }),
+        page.getByRole('heading', { name: 'Analisis Manual JudolLens' }),
       ).toBeVisible();
 
       await page
-        .getByRole('textbox', { name: 'Manual analysis text' })
+        .getByRole('textbox', { name: 'Teks analisis manual' })
         .fill('b\u03bfnus sl\u03bft gacor deposit 10k');
-      await page.getByRole('button', { name: 'Analyze' }).click();
+      await page.getByRole('button', { name: 'Analisis' }).click();
 
       await expect(page.getByText('JUDOL', { exact: true })).toBeVisible();
-      await expect(page.getByText('HIGH', { exact: true })).toBeVisible();
+      await expect(page.getByText('TINGGI', { exact: true })).toBeVisible();
       await expect(page.getByText('homoglyph').first()).toBeVisible();
       await expect(page.getByText('mock-keyword-unicode 0.1.0')).toBeVisible();
 
@@ -37,25 +37,25 @@ test.describe('JudolLens manual analysis page', () => {
         fullPage: true,
       });
 
-      await page.getByRole('button', { name: 'Save to logs' }).click();
-      await expect(page.getByText('Saved to logs')).toBeVisible();
+      await page.getByRole('button', { name: 'Simpan ke log' }).click();
+      await expect(page.getByText('Disimpan ke log')).toBeVisible();
 
       await page
-        .getByRole('textbox', { name: 'Manual analysis text' })
+        .getByRole('textbox', { name: 'Teks analisis manual' })
         .fill('slot waktu praktikum sudah penuh');
-      await page.getByRole('button', { name: 'Analyze' }).click();
-      await expect(page.getByText('NON_JUDOL', { exact: true })).toBeVisible();
-      await expect(page.getByText('LOW', { exact: true })).toBeVisible();
-      await page.getByRole('button', { name: 'Save to logs' }).click();
-      await expect(page.getByText('Saved to logs')).toBeVisible();
+      await page.getByRole('button', { name: 'Analisis' }).click();
+      await expect(page.getByText('BUKAN JUDOL', { exact: true })).toBeVisible();
+      await expect(page.getByText('RENDAH', { exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Simpan ke log' }).click();
+      await expect(page.getByText('Disimpan ke log')).toBeVisible();
 
       const logsPage = await context.newPage();
       await logsPage.goto(`chrome-extension://${extensionId}/logs.html`);
       await expect(
-        logsPage.getByRole('heading', { name: 'JudolLens Logs' }),
+        logsPage.getByRole('heading', { name: 'Log JudolLens' }),
       ).toBeVisible();
       await expect(logsPage.locator('tbody tr')).toHaveCount(2);
-      await expect(logsPage.getByText('NON_JUDOL')).toBeVisible();
+      await expect(logsPage.getByText('BUKAN JUDOL')).toBeVisible();
       await expect(
         logsPage.getByRole('cell', {
           name: 'slot waktu praktikum sudah penuh',
@@ -63,10 +63,10 @@ test.describe('JudolLens manual analysis page', () => {
       ).toBeVisible();
 
       await logsPage
-        .getByRole('textbox', { name: 'Search logs' })
+        .getByRole('textbox', { name: 'Cari log' })
         .fill('praktikum');
       await expect(logsPage.locator('tbody tr')).toHaveCount(1);
-      await expect(logsPage.getByText('NONE')).toBeVisible();
+      await expect(logsPage.getByText('Tidak ada')).toBeVisible();
     } finally {
       await context.close();
     }

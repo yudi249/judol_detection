@@ -31,32 +31,32 @@ test.describe('JudolLens options and logs pages', () => {
       await page.goto(`chrome-extension://${extensionId}/options.html`);
 
       await expect(
-        page.getByRole('heading', { name: 'JudolLens Options' }),
+        page.getByRole('heading', { name: 'Pengaturan JudolLens' }),
       ).toBeVisible();
 
       const unicodeSwitch = page.getByRole('switch', {
-        name: 'Highlight Unicode',
+        name: 'Sorot Unicode',
       });
       await expect(unicodeSwitch).toHaveAttribute('aria-checked', 'true');
       await unicodeSwitch.click();
       await expect(unicodeSwitch).toHaveAttribute('aria-checked', 'false');
 
       const thresholdInput = page.getByRole('spinbutton', {
-        name: 'Threshold percent',
+        name: 'Persentase ambang',
       });
       await thresholdInput.fill('76');
-      await expect(page.getByText(/Threshold 76%/)).toBeVisible();
+      await expect(page.getByText(/Ambang 76%/)).toBeVisible();
 
       await page.reload();
       await expect(
-        page.getByRole('heading', { name: 'JudolLens Options' }),
+        page.getByRole('heading', { name: 'Pengaturan JudolLens' }),
       ).toBeVisible();
       await expect(
-        page.getByRole('switch', { name: 'Highlight Unicode' }),
+        page.getByRole('switch', { name: 'Sorot Unicode' }),
       ).toHaveAttribute('aria-checked', 'false');
-      await expect(page.getByText(/Threshold 76%/)).toBeVisible();
+      await expect(page.getByText(/Ambang 76%/)).toBeVisible();
       await expect(
-        page.getByRole('spinbutton', { name: 'Threshold percent' }),
+        page.getByRole('spinbutton', { name: 'Persentase ambang' }),
       ).toHaveValue('76');
 
       await page.screenshot({
@@ -85,11 +85,11 @@ test.describe('JudolLens options and logs pages', () => {
       await logsPage.goto(`chrome-extension://${extensionId}/logs.html`);
 
       await expect(
-        logsPage.getByRole('heading', { name: 'JudolLens Logs' }),
+        logsPage.getByRole('heading', { name: 'Log JudolLens' }),
       ).toBeVisible();
-      await expect(logsPage.getByText('Total logs')).toBeVisible();
+      await expect(logsPage.getByText('Total log')).toBeVisible();
       await expect(logsPage.locator('tbody tr')).toHaveCount(5);
-      await expect(logsPage.getByText('Detail Panel')).toBeVisible();
+      await expect(logsPage.getByText('Panel detail')).toBeVisible();
       await expect(logsPage.getByText(/0\.1\.0/).first()).toBeVisible();
 
       await logsPage.screenshot({
@@ -97,13 +97,13 @@ test.describe('JudolLens options and logs pages', () => {
         fullPage: true,
       });
 
-      await logsPage.getByRole('textbox', { name: 'Search logs' }).fill('dinamis');
+      await logsPage.getByRole('textbox', { name: 'Cari log' }).fill('dinamis');
       await expect(logsPage.locator('tbody tr')).toHaveCount(1);
 
-      await logsPage.getByRole('button', { name: 'Clear logs' }).click();
+      await logsPage.getByRole('button', { name: 'Hapus log' }).click();
       await expect(logsPage.locator('tbody tr')).toHaveCount(0);
       await expect(
-        logsPage.getByText('No detection logs match the current filters'),
+        logsPage.getByText('Tidak ada log deteksi yang cocok dengan filter saat ini'),
       ).toBeVisible();
 
       const popup = await context.newPage();

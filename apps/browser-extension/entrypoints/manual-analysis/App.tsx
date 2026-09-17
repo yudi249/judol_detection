@@ -37,7 +37,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('Loading manual analysis');
+  const [statusMessage, setStatusMessage] = useState('Memuat analisis manual');
 
   useEffect(() => {
     void loadManualAnalysis();
@@ -51,7 +51,7 @@ function App() {
       type: MESSAGE_TYPES.getManualAnalysis,
     })) as ManualAnalysisResponseMessage;
     setState(response.payload.state);
-    setStatusMessage('Manual analysis loaded');
+    setStatusMessage('Analisis manual dimuat');
     setIsLoading(false);
   }
 
@@ -61,17 +61,25 @@ function App() {
     }
 
     setIsAnalyzing(true);
-    const response = (await browser.runtime.sendMessage({
-      type: MESSAGE_TYPES.analyzeManualText,
-      payload: {
-        inputText: state.inputText,
-        sourcePlatform: state.sourcePlatform,
-        sourceUrl: state.sourceUrl,
-      },
-    })) as ManualAnalyzeResponseMessage;
-    setState(response.payload.state);
-    setStatusMessage('Analysis complete');
-    setIsAnalyzing(false);
+    try {
+      const response = (await browser.runtime.sendMessage({
+        type: MESSAGE_TYPES.analyzeManualText,
+        payload: {
+          inputText: state.inputText,
+          sourcePlatform: state.sourcePlatform,
+          sourceUrl: state.sourceUrl,
+        },
+      })) as ManualAnalyzeResponseMessage;
+      if (response.payload.kind === 'error') {
+        setStatusMessage(`${response.payload.error.code}: ${response.payload.error.message}`);
+        return;
+      }
+
+      setState(response.payload.state);
+      setStatusMessage('Analisis selesai');
+    } finally {
+      setIsAnalyzing(false);
+    }
   }
 
   async function saveToLogs() {
@@ -88,7 +96,7 @@ function App() {
       },
     })) as SaveManualAnalysisResponseMessage;
     setState(response.payload.state);
-    setStatusMessage('Saved to logs');
+    setStatusMessage('Disimpan ke log');
     setIsSaving(false);
   }
 
@@ -98,10 +106,10 @@ function App() {
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold tracking-normal">
-              JudolLens Manual Analysis
+              Analisis Manual JudolLens
             </h1>
             <p className="mt-1 text-sm text-slate-600">
-              Inspect selected or pasted text with matched terms and Unicode evidence.
+              Periksa teks yang dipilih atau ditempel dengan istilah cocok dan bukti Unicode.
             </p>
           </div>
           <Badge variant="secondary">{statusMessage}</Badge>
@@ -113,17 +121,17 @@ function App() {
               <div className="flex items-center gap-2">
                 <FileSearchIcon aria-hidden="true" className="size-4 text-slate-500" />
                 <h2 className="text-sm font-bold uppercase tracking-[0.08em] text-slate-700">
-                  Input
+                  Masukan
                 </h2>
               </div>
               <Badge variant="outline">{model.sourcePlatform}</Badge>
             </div>
 
             <Textarea
-              aria-label="Manual analysis text"
+              aria-label="Teks analisis manual"
               className="min-h-56 resize-y"
               disabled={isLoading}
-              placeholder="Paste suspicious text or use the JudolLens context menu from a page selection."
+              placeholder="Tempel teks mencurigakan atau gunakan menu konteks JudolLens pada teks yang dipilih di halaman."
               value={state.inputText}
               onChange={(event) =>
                 setState({
@@ -145,7 +153,7 @@ function App() {
                 ) : (
                   <SparklesIcon aria-hidden="true" className="size-4" />
                 )}
-                Analyze
+                Analisis
               </Button>
               <Button
                 disabled={!model.canSave || isSaving}
@@ -157,12 +165,12 @@ function App() {
                 ) : (
                   <SaveIcon aria-hidden="true" className="size-4" />
                 )}
-                Save to logs
+                Simpan ke log
               </Button>
             </div>
 
             <div className="rounded-md border bg-slate-50 p-3 text-sm text-slate-600">
-              Manual logs can store judol and non-judol results for thesis evidence.
+              Log manual dapat menyimpan hasil judol dan bukan judol sebagai bukti skripsi.
             </div>
           </div>
 
@@ -193,21 +201,21 @@ function ResultPanel({
     <aside className="flex flex-col gap-4 rounded-lg border bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-bold uppercase tracking-[0.08em] text-slate-700">
-          Result
+          Hasil
         </h2>
         <Badge variant="secondary">{model.result.risk}</Badge>
       </div>
 
       <section className="grid grid-cols-2 gap-3">
         <Metric label="Label" value={model.result.label} />
-        <Metric label="Confidence" value={model.result.confidence} />
-        <Metric label="Action" value={model.result.action} />
-        <Metric label="Analyzed" value={model.analyzedAt} />
+        <Metric label="Keyakinan" value={model.result.confidence} />
+        <Metric label="Tindakan" value={model.result.action} />
+        <Metric label="Dianalisis" value={model.analyzedAt} />
       </section>
 
       <section>
         <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
-          Snippet
+          Cuplikan
         </h3>
         <p className="mt-2 rounded-md bg-slate-50 p-3 text-sm leading-6 text-slate-800">
           {model.result.snippet}
@@ -216,11 +224,11 @@ function ResultPanel({
 
       <section>
         <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
-          Matched terms
+          Istilah yang cocok
         </h3>
         <div className="mt-2 flex flex-wrap gap-2">
           {model.result.matchedTerms.length === 0 ? (
-            <span className="text-sm text-slate-600">No matched terms.</span>
+            <span className="text-sm text-slate-600">Tidak ada istilah yang cocok.</span>
           ) : (
             model.result.matchedTerms.map((term) => (
               <Badge key={term} variant="outline">
@@ -233,19 +241,19 @@ function ResultPanel({
 
       <section>
         <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
-          Unicode breakdown
+          Rincian Unicode
         </h3>
         {model.result.unicodeRows.length === 0 ? (
           <p className="mt-2 text-sm text-slate-600">
-            No suspicious Unicode spans.
+            Tidak ada bagian Unicode mencurigakan.
           </p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Char</TableHead>
-                <TableHead>Normalized</TableHead>
-                <TableHead>Reason</TableHead>
+                <TableHead>Karakter</TableHead>
+                <TableHead>Normalisasi</TableHead>
+                <TableHead>Alasan</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -263,7 +271,7 @@ function ResultPanel({
 
       <section>
         <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
-          Reasons
+          Alasan
         </h3>
         <div className="mt-2 flex flex-col gap-2">
           {model.result.reasonRows.map((reason) => (
@@ -282,12 +290,12 @@ function ResultPanel({
 
       <section className="grid gap-2 text-sm text-slate-700">
         <Meta label="Model" value={model.result.modelLabel} />
-        <Meta label="Request" value={model.result.requestId} />
+        <Meta label="Permintaan" value={model.result.requestId} />
       </section>
 
       <div className="flex items-center gap-2 rounded-md bg-slate-50 p-3 text-sm text-slate-600">
         <ShieldAlertIcon aria-hidden="true" className="size-4" />
-        Copy result JSON is intentionally deferred after MVP 2.
+        Salin hasil JSON sengaja ditunda hingga setelah MVP 2.
       </div>
     </aside>
   );

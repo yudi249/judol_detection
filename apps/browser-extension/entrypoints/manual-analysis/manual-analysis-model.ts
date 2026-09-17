@@ -51,18 +51,18 @@ export function buildManualAnalysisViewModel(
     canAnalyze: inputText.trim().length > 0,
     canSave: Boolean(result),
     emptyMessage: inputText.trim()
-      ? 'Run analysis to inspect this text.'
-      : 'Paste or select text to analyze.',
+      ? 'Jalankan analisis untuk memeriksa teks ini.'
+      : 'Tempel atau pilih teks untuk dianalisis.',
     sourcePlatform: formatPlatform(state.sourcePlatform),
     analyzedAt: state.analyzedAt
-      ? new Date(state.analyzedAt).toLocaleString()
+      ? new Date(state.analyzedAt).toLocaleString('id-ID')
       : '-',
     result: result
       ? {
-          label: result.label.toUpperCase(),
+          label: formatLabel(result.label),
           confidence: formatManualConfidence(result.confidence),
           risk: formatManualRisk(result.riskLevel),
-          action: result.action,
+          action: formatAction(result.action),
           matchedTerms: result.matchedTerms,
           unicodeRows: result.unicodeAnalysis.spans.map(formatUnicodeSpan),
           reasonRows: result.reasons.map(formatReason),
@@ -81,7 +81,13 @@ export function formatManualConfidence(confidence: number): string {
 }
 
 export function formatManualRisk(risk: RiskLevel): string {
-  return risk.toUpperCase();
+  const labels: Record<RiskLevel, string> = {
+    high: 'TINGGI',
+    medium: 'SEDANG',
+    low: 'RENDAH',
+  };
+
+  return labels[risk];
 }
 
 function formatUnicodeSpan(span: UnicodeSpan): UnicodeEvidenceRow {
@@ -94,8 +100,14 @@ function formatUnicodeSpan(span: UnicodeSpan): UnicodeEvidenceRow {
 }
 
 function formatReason(reason: DetectionReason): ReasonRow {
+  const typeLabels: Record<DetectionReason['type'], string> = {
+    keyword: 'Kata kunci',
+    unicode: 'Unicode',
+    model_signal: 'Sinyal model',
+  };
+
   return {
-    label: `${reason.type}: ${reason.value}`,
+    label: `${typeLabels[reason.type]}: ${reason.value}`,
     weight: reason.weight.toFixed(2),
   };
 }
@@ -105,9 +117,24 @@ function formatPlatform(platform: ManualAnalysisState['sourcePlatform']): string
     youtube: 'YouTube',
     telegram: 'Telegram Web',
     x: 'X/Twitter',
-    simulation: 'Simulation',
-    unknown: 'Unknown',
+    simulation: 'Halaman simulasi',
+    unknown: 'Tidak dikenal',
   };
 
   return labels[platform];
+}
+
+function formatLabel(label: 'judol' | 'non_judol'): string {
+  return label === 'judol' ? 'JUDOL' : 'BUKAN JUDOL';
+}
+
+function formatAction(action: 'blur' | 'warn' | 'hide' | 'none'): string {
+  const labels = {
+    blur: 'Buram',
+    warn: 'Peringatan',
+    hide: 'Sembunyikan',
+    none: 'Tidak ada',
+  } as const;
+
+  return labels[action];
 }

@@ -62,7 +62,7 @@ test.describe('JudolLens options live settings', () => {
       const optionsPage = await context.newPage();
       await optionsPage.goto(`chrome-extension://${extensionId}/options.html`);
       await expect(
-        optionsPage.getByRole('heading', { name: 'JudolLens Options' }),
+        optionsPage.getByRole('heading', { name: 'Pengaturan JudolLens' }),
       ).toBeVisible();
 
       await resetExtensionState(optionsPage);

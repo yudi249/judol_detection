@@ -21,6 +21,14 @@ Positioning:
 Research-first browser extension for detecting Unicode-obfuscated Indonesian judol promotion content.
 ```
 
+## Copy Language
+
+Use Indonesian for extension-owned interface copy, simulation fixtures, visible
+test labels, and user-facing error states. Keep `JudolLens`, technical protocol
+identifiers, source platform values, and stored contract enum values unchanged.
+This keeps the research prototype legible to Indonesian users without changing
+the API or persistence contract.
+
 ## Popup
 
 Purpose: answer the user's main questions within a few seconds.
@@ -37,9 +45,7 @@ JudolLens                         Active
 YouTube - Mock mode
 
 Protection
-[ON] Page protection
-[ON] Auto blur
-[ON] Unicode highlight
+[ON] Automatic protection
 
 Session Evidence
 Scanned        128
@@ -67,7 +73,7 @@ Required states:
 MVP 1 requirements:
 
 - header status
-- protection, auto-blur, and Unicode-highlight toggles
+- automatic protection toggle; detailed settings remain in Options
 - scanned, detected, Unicode suspicious, and last scan counters
 - recent detection summary
 - links to Logs and Options
