@@ -87,6 +87,19 @@ describe('extension storage service', () => {
     });
     expect(area.peek(STORAGE_KEYS.settings)).toEqual(updated);
   });
+  it('retains a persisted master protection setting when merging updates', async () => {
+    const area = new MemoryStorageArea();
+
+    const updated = await updateExtensionSettings(
+      { protectionEnabled: false },
+      area,
+    );
+
+    expect(updated.protectionEnabled).toBe(false);
+    await expect(getExtensionSettings(area)).resolves.toMatchObject({
+      protectionEnabled: false,
+    });
+  });
 
   it('creates session stats defaults and omits activeUrl when source URL storage is disabled', async () => {
     const area = new MemoryStorageArea();

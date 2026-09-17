@@ -25,6 +25,7 @@ export type ExtensionSettings = {
   predictionMode: SettingsPredictionMode;
   apiEndpoint: string;
   threshold: number;
+  protectionEnabled: boolean;
   censorMode: DetectionAction;
   autoBlur: boolean;
   highlightUnicode: boolean;
@@ -39,6 +40,7 @@ export const defaultExtensionSettings: ExtensionSettings = {
   predictionMode: 'mock',
   apiEndpoint: 'http://localhost:8000',
   threshold: 0.75,
+  protectionEnabled: true,
   censorMode: 'blur',
   autoBlur: true,
   highlightUnicode: true,

@@ -6,6 +6,8 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": ["./*"],
+      "@/api": ["./src/api/index.ts"],
+      "@/api/*": ["./src/api/*"],
       "@/components/*": ["./src/components/*"],
       "@/dom": ["./src/dom/index.ts"],
       "@/dom/*": ["./src/dom/*"],

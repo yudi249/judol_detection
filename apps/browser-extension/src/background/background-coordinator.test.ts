@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   MESSAGE_TYPES,
@@ -7,14 +9,19 @@ import {
   type ExtensionStorageSchema,
   type ManualAnalysisState,
   type ManualAnalyzeResponseMessage,
+  type ManualAnalyzeSuccessResponseMessage,
   type ManualAnalysisResponseMessage,
   type PredictionBatchRequest,
+  type PredictionBatchResponse,
   type ScanBatchResponseMessage,
   type ScanBatchMessage,
   type SessionStats,
 } from '../shared';
+import { predictBatch as predictBatchWithMock } from '../predictor';
 import type { StorageArea } from '../storage';
 import { handleJudolLensMessage } from './background-coordinator';
+import extensionConfig from '../../wxt.config';
+
 
 class MemoryStorageArea implements StorageArea {
   private readonly values = new Map<string, unknown>();
@@ -145,6 +152,61 @@ describe('background prediction coordinator', () => {
     expect(logs[0]).not.toHaveProperty('sourceUrl');
   });
 
+  it('does not invoke the predictor or persist scan state while master protection is disabled', async () => {
+    await area.setItem(STORAGE_KEYS.settings, {
+      ...defaultExtensionSettings,
+      protectionEnabled: false,
+    });
+    const mockPredictBatch = vi.fn();
+
+    const response = (await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.scanBatch,
+        payload: createBatchRequest(),
+      },
+      { storageArea: area, mockPredictBatch },
+    )) as ScanBatchResponseMessage;
+
+    expect(mockPredictBatch).not.toHaveBeenCalled();
+    expect(response.payload.results).toEqual([]);
+    expect(response.payload.summary).toEqual({
+      totalItems: 0,
+      judolCount: 0,
+      unicodeSuspiciousCount: 0,
+      processingTimeMs: 0,
+    });
+    expect(area.peek(STORAGE_KEYS.sessionStats)).toBeUndefined();
+    expect(area.peek(STORAGE_KEYS.detectionLogs)).toBeUndefined();
+  });
+
+  it('discards an in-flight automatic scan when protection is disabled before persistence', async () => {
+    let resolvePrediction:
+      | ((value: PredictionBatchResponse) => void)
+      | undefined;
+    const prediction = new Promise<PredictionBatchResponse>((resolve) => {
+      resolvePrediction = resolve;
+    });
+
+    const responsePromise = handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.scanBatch,
+        payload: createBatchRequest(),
+      },
+      { storageArea: area, mockPredictBatch: () => prediction },
+    );
+    await area.setItem(STORAGE_KEYS.settings, {
+      ...defaultExtensionSettings,
+      protectionEnabled: false,
+    });
+    resolvePrediction?.(await predictBatchWithMock(createBatchRequest()));
+
+    const response = (await responsePromise) as ScanBatchResponseMessage;
+
+    expect(response.payload.results).toEqual([]);
+    expect(area.peek(STORAGE_KEYS.sessionStats)).toBeUndefined();
+    expect(area.peek(STORAGE_KEYS.detectionLogs)).toBeUndefined();
+  });
+
   it('uses stored threshold instead of the content script request threshold', async () => {
     await area.setItem(STORAGE_KEYS.settings, {
       ...defaultExtensionSettings,
@@ -251,7 +313,7 @@ describe('background prediction coordinator', () => {
 
     const response = await handleJudolLensMessage(message, {
       storageArea: area,
-      predictBatch: () => {
+      mockPredictBatch: async () => {
         throw new Error('predictor exploded');
       },
     });
@@ -281,6 +343,247 @@ describe('background prediction coordinator', () => {
       }),
     );
   });
+  it('records an API terminal error without persisting clean results, stats, or detection logs', async () => {
+    await area.setItem(STORAGE_KEYS.settings, {
+      ...defaultExtensionSettings,
+      predictionMode: 'api',
+    });
+    const apiPredictBatch = vi.fn().mockResolvedValue({
+      requestId: 'scan-request-1',
+      model: {
+        name: 'api',
+        version: '0.1.0',
+        architecture: 'indobert-base-p1',
+        isMock: false,
+      },
+      summary: {
+        totalItems: 2,
+        judolCount: 0,
+        unicodeSuspiciousCount: 0,
+        processingTimeMs: 0,
+      },
+      results: [],
+      errors: [
+        {
+          code: 'api_prediction_failed',
+          message: 'service unavailable',
+        },
+      ],
+    });
+
+    const response = (await handleJudolLensMessage(
+      { type: MESSAGE_TYPES.scanBatch, payload: createBatchRequest() },
+      { storageArea: area, apiPredictBatch },
+    )) as ScanBatchResponseMessage;
+
+    expect(response.payload.results).toEqual([]);
+    expect(apiPredictBatch).toHaveBeenCalledOnce();
+    expect(area.peek(STORAGE_KEYS.sessionStats)).toEqual(
+      expect.objectContaining({
+        protectionStatus: 'error',
+        predictionMode: 'api',
+        lastError: expect.objectContaining({
+          code: 'api_prediction_failed',
+          message: 'service unavailable',
+        }),
+      }),
+    );
+    expect(area.peek(STORAGE_KEYS.detectionLogs)).toBeUndefined();
+  });
+
+  it('does not persist successful chunk results after a partial terminal API failure', async () => {
+    await area.setItem(STORAGE_KEYS.settings, {
+      ...defaultExtensionSettings,
+      predictionMode: 'api',
+    });
+    const request = {
+      ...createBatchRequest(),
+      items: Array.from({ length: 5 }, (_, index) => ({
+        id: `candidate-${index}`,
+        text: 'bonus new member slot gacor malam ini',
+        context: { kind: 'comment' as const, visible: true },
+      })),
+    };
+    const successfulResponse = await predictBatchWithMock(request);
+    const apiPredictBatch = vi.fn().mockResolvedValue({
+      ...successfulResponse,
+      results: successfulResponse.results.slice(0, 4),
+      errors: [
+        {
+          itemId: 'candidate-4',
+          code: 'api_prediction_failed',
+          message: 'service unavailable',
+        },
+      ],
+    });
+
+    const response = (await handleJudolLensMessage(
+      { type: MESSAGE_TYPES.scanBatch, payload: request },
+      { storageArea: area, apiPredictBatch },
+    )) as ScanBatchResponseMessage;
+
+    expect(response.payload.results).toHaveLength(4);
+    expect(response.payload.errors).toEqual([
+      expect.objectContaining({ itemId: 'candidate-4', code: 'api_prediction_failed' }),
+    ]);
+    expect(area.peek(STORAGE_KEYS.sessionStats)).toEqual(
+      expect.objectContaining({
+        protectionStatus: 'error',
+        predictionMode: 'api',
+        lastError: expect.objectContaining({ code: 'api_prediction_failed' }),
+      }),
+    );
+    expect(area.peek(STORAGE_KEYS.detectionLogs)).toBeUndefined();
+  });
+  it('declares only explicit loopback host permissions for the local API', () => {
+    const manifest = extensionConfig.manifest as { host_permissions?: string[] };
+    expect(manifest.host_permissions).toEqual([
+      'http://localhost/*',
+      'http://127.0.0.1/*',
+      'http://[::1]/*',
+    ]);
+  });
+
+  it('emits only valid Chrome match patterns for content scripts', () => {
+    const manifestPath = resolve(
+      import.meta.dirname,
+      '../../.output/chrome-mv3/manifest.json',
+    );
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      content_scripts?: Array<{ matches?: string[] }>;
+    };
+    const matches = manifest.content_scripts?.flatMap((script) => script.matches ?? []) ?? [];
+
+    expect(matches).not.toHaveLength(0);
+    expect(
+      matches.every((pattern) => {
+        const match = /^(?:\*|http|https|file|ftp):\/\/([^/]+)(\/.*)$/.exec(pattern);
+        return match !== null && !match[1]?.includes(':');
+      }),
+    ).toBe(true);
+  });
+
+  it('emits the default locale catalog required by the manifest', () => {
+    const manifest = extensionConfig.manifest as { default_locale?: string };
+    const locale = manifest.default_locale;
+
+    expect(locale).toBe('id');
+    expect(
+      existsSync(
+        resolve(import.meta.dirname, `../../.output/chrome-mv3/_locales/${locale}/messages.json`),
+      ),
+    ).toBe(true);
+  });
+
+  it('returns a structured manual API error without persisting a missing result', async () => {
+    await area.setItem(STORAGE_KEYS.settings, {
+      ...defaultExtensionSettings,
+      predictionMode: 'api',
+    });
+    const apiPredictBatch = vi.fn().mockResolvedValue({
+      requestId: 'manual-request-1',
+      model: {
+        name: 'api',
+        version: '0.1.0',
+        architecture: 'indobert-base-p1',
+        isMock: false,
+      },
+      summary: {
+        totalItems: 1,
+        judolCount: 0,
+        unicodeSuspiciousCount: 0,
+        processingTimeMs: 0,
+      },
+      results: [],
+      errors: [
+        {
+          code: 'api_prediction_failed',
+          message: 'service unavailable',
+        },
+      ],
+    });
+
+    const response = (await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.analyzeManualText,
+        payload: { inputText: 'bonus slot gacor', sourcePlatform: 'simulation' },
+      },
+      { storageArea: area, apiPredictBatch },
+    )) as ManualAnalyzeResponseMessage;
+
+    expect(response.payload.kind).toBe('error');
+    if (response.payload.kind !== 'error') {
+      throw new Error('Expected terminal API failure to return a manual analysis error');
+    }
+
+    expect(response).toEqual({
+      type: MESSAGE_TYPES.analyzeManualText,
+      payload: {
+        kind: 'error',
+        error: {
+          code: 'api_prediction_failed',
+          message: 'service unavailable',
+        },
+      },
+    });
+    expect(area.peek(STORAGE_KEYS.manualLastAnalysis)).toBeUndefined();
+    expect(area.peek(STORAGE_KEYS.sessionStats)).toEqual(
+      expect.objectContaining({
+        protectionStatus: 'error',
+        predictionMode: 'api',
+        lastError: expect.objectContaining({ code: 'api_prediction_failed' }),
+      }),
+    );
+  });
+
+
+  it('awaits API manual analysis and persists the non-mock returned model', async () => {
+    await area.setItem(STORAGE_KEYS.settings, {
+      ...defaultExtensionSettings,
+      predictionMode: 'api',
+      threshold: 0.63,
+    });
+    const mockResponse = predictBatchWithMock({
+      ...createBatchRequest(),
+      items: [
+        {
+          id: 'manual-item',
+          text: 'bonus slot gacor',
+          context: { kind: 'unknown', visible: true, languageHint: 'id' },
+        },
+      ],
+    });
+    const apiPredictBatch = vi.fn().mockResolvedValue({
+      ...mockResponse,
+      model: {
+        name: 'clean-indobert',
+        version: '0.1.0',
+        architecture: 'indobert-base-p1',
+        isMock: false,
+      },
+    });
+
+    const response = (await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.analyzeManualText,
+        payload: { inputText: 'bonus slot gacor', sourcePlatform: 'simulation' },
+      },
+      { storageArea: area, apiPredictBatch },
+    )) as ManualAnalyzeSuccessResponseMessage;
+
+    expect(apiPredictBatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        client: expect.objectContaining({ predictionMode: 'api', threshold: 0.63 }),
+      }),
+    );
+    expect(response.payload.model.isMock).toBe(false);
+    expect(area.peek(STORAGE_KEYS.manualLastAnalysis)).toEqual(
+      expect.objectContaining({
+        requestId: response.payload.requestId,
+        model: expect.objectContaining({ isMock: false }),
+      }),
+    );
+  });
 
   it('analyzes manual text and persists the latest manual analysis state', async () => {
     const response = (await handleJudolLensMessage(
@@ -293,7 +596,7 @@ describe('background prediction coordinator', () => {
         },
       },
       { storageArea: area },
-    )) as ManualAnalyzeResponseMessage;
+    )) as ManualAnalyzeSuccessResponseMessage;
 
     expect(response.type).toBe(MESSAGE_TYPES.analyzeManualText);
     expect(response.payload.result).toEqual(
@@ -353,7 +656,7 @@ describe('background prediction coordinator', () => {
         },
       },
       { storageArea: area },
-    )) as ManualAnalyzeResponseMessage;
+    )) as ManualAnalyzeSuccessResponseMessage;
     const cleanResponse = (await handleJudolLensMessage(
       {
         type: MESSAGE_TYPES.analyzeManualText,
@@ -363,7 +666,7 @@ describe('background prediction coordinator', () => {
         },
       },
       { storageArea: area },
-    )) as ManualAnalyzeResponseMessage;
+    )) as ManualAnalyzeSuccessResponseMessage;
 
     await handleJudolLensMessage(
       {
@@ -425,4 +728,87 @@ describe('background prediction coordinator', () => {
       pageUrl: 'https://web.telegram.org/a/#chat',
     });
   });
+  it('predicts captured X timeline items through the generic batch contract', async () => {
+    const response = await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.xTimelineItems,
+        payload: {
+          sourceUrl: 'https://x.com/search?q=slot',
+          pageTitle: 'X search',
+          items: [{ id: '2099429059063341169', text: 'bonus slot gacor' }],
+        },
+      },
+      { storageArea: area },
+    );
+
+    expect(response).toEqual({
+      type: MESSAGE_TYPES.xTimelinePredictions,
+      payload: expect.objectContaining({
+        results: [expect.objectContaining({ id: '2099429059063341169', label: 'judol' })],
+        summary: expect.objectContaining({ totalItems: 1, judolCount: 1 }),
+      }),
+    });
+    expect((area.peek(STORAGE_KEYS.sessionStats) as SessionStats).activePlatform).toBe('x');
+  });
+
+  it('returns hide actions for captured X posts when censor mode is hide', async () => {
+    await area.setItem(STORAGE_KEYS.settings, {
+      ...defaultExtensionSettings,
+      censorMode: 'hide',
+    });
+
+    const response = await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.xTimelineItems,
+        payload: {
+          sourceUrl: 'https://x.com/search?q=slot',
+          items: [{ id: '2099429059063341169', text: 'bonus slot gacor' }],
+        },
+      },
+      { storageArea: area },
+    );
+
+    expect(response).toEqual(
+      expect.objectContaining({
+        type: MESSAGE_TYPES.xTimelinePredictions,
+        payload: expect.objectContaining({
+          results: [expect.objectContaining({ action: 'hide' })],
+        }),
+      }),
+    );
+  });
+
+  it('keeps the generic API prediction mode for captured X timeline items', async () => {
+    const apiPredictBatch = vi.fn(async (request: PredictionBatchRequest) =>
+      predictBatchWithMock(request),
+    );
+
+    await area.setItem(STORAGE_KEYS.settings, {
+      ...defaultExtensionSettings,
+      predictionMode: 'api',
+    });
+    await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.xTimelineItems,
+        payload: {
+          sourceUrl: 'https://x.com/search?q=slot',
+          items: [{ id: '2099429059063341169', text: 'bonus slot gacor' }],
+        },
+      },
+      { storageArea: area, apiPredictBatch },
+    );
+
+    expect(apiPredictBatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: expect.objectContaining({ platform: 'x' }),
+        items: [
+          expect.objectContaining({
+            id: '2099429059063341169',
+            context: expect.objectContaining({ kind: 'post' }),
+          }),
+        ],
+      }),
+    );
+  });
+
 });

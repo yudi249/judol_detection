@@ -4,6 +4,7 @@ import type {
   PredictionModelInfo,
   PredictionResult,
 } from './prediction';
+import type { PredictionError } from './prediction';
 import type { Platform } from './platform';
 import type {
   DetectionLog,
@@ -21,7 +22,33 @@ export const MESSAGE_TYPES = {
   analyzeManualText: 'judollens:analyze-manual-text',
   openManualAnalysis: 'judollens:open-manual-analysis',
   saveManualAnalysis: 'judollens:save-manual-analysis',
+  xTimelineSubscribe: 'judollens:x-timeline-subscribe',
+  xTimelineUnsubscribe: 'judollens:x-timeline-unsubscribe',
+  xTimelineItems: 'judollens:x-timeline-items',
+  xTimelinePredictions: 'judollens:x-timeline-predictions',
 } as const;
+
+export type XTimelineSubscribeMessage = {
+  type: typeof MESSAGE_TYPES.xTimelineSubscribe;
+};
+
+export type XTimelineUnsubscribeMessage = {
+  type: typeof MESSAGE_TYPES.xTimelineUnsubscribe;
+};
+
+export type XTimelineItemsMessage = {
+  type: typeof MESSAGE_TYPES.xTimelineItems;
+  payload: {
+    sourceUrl: string;
+    pageTitle?: string;
+    items: Array<{ id: string; text: string }>;
+  };
+};
+
+export type XTimelinePredictionsMessage = {
+  type: typeof MESSAGE_TYPES.xTimelinePredictions;
+  payload: PredictionBatchResponse;
+};
 
 export type MessageType = (typeof MESSAGE_TYPES)[keyof typeof MESSAGE_TYPES];
 
@@ -87,15 +114,28 @@ export type OpenManualAnalysisMessage = {
   };
 };
 
-export type ManualAnalyzeResponseMessage = {
+export type ManualAnalyzeSuccessResponseMessage = {
   type: typeof MESSAGE_TYPES.analyzeManualText;
   payload: {
+    kind: 'success';
     state: ManualAnalysisState;
     result: PredictionResult;
     model: PredictionModelInfo;
     requestId: string;
   };
 };
+
+export type ManualAnalyzeErrorResponseMessage = {
+  type: typeof MESSAGE_TYPES.analyzeManualText;
+  payload: {
+    kind: 'error';
+    error: PredictionError;
+  };
+};
+
+export type ManualAnalyzeResponseMessage =
+  | ManualAnalyzeSuccessResponseMessage
+  | ManualAnalyzeErrorResponseMessage;
 
 export type SaveManualAnalysisMessage = {
   type: typeof MESSAGE_TYPES.saveManualAnalysis;
@@ -120,11 +160,15 @@ export type JudolLensRequestMessage =
   | GetManualAnalysisMessage
   | AnalyzeManualTextMessage
   | OpenManualAnalysisMessage
-  | SaveManualAnalysisMessage;
+  | SaveManualAnalysisMessage
+  | XTimelineSubscribeMessage
+  | XTimelineUnsubscribeMessage
+  | XTimelineItemsMessage;
 
 export type JudolLensResponseMessage =
   | ScanBatchResponseMessage
   | ExtensionStateResponseMessage
   | ManualAnalysisResponseMessage
   | ManualAnalyzeResponseMessage
-  | SaveManualAnalysisResponseMessage;
+  | SaveManualAnalysisResponseMessage
+  | XTimelinePredictionsMessage;
