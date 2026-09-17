@@ -34,6 +34,12 @@ Cohen's Kappa; `label_final` diturunkan dari kesepakatan ketiganya dan
 > dikeluarkan dari scope EDA dan ditangani di sesi khusus; Cohen's Kappa tetap
 > merupakan metode evaluasi anotasi pada metodologi skripsi.
 
+The clean IndoBERT baseline trains only from `text_raw` plus human `label_final`.
+It preserves raw text before tokenizer input and does not use `weak_label`, Unicode
+augmentation, or Unicode normalization. Each output artifact includes a manifest
+with dataset/split SHA-256 hashes, label mapping, tokenizer max length, checkpoint
+revision, validation metrics, and timestamp.
+
 ## Fondasi Collection Lokal
 
 Database operasional untuk proses pengumpulan adalah SQLite pada `data/interim/collection.sqlite`. File CSV dan Parquet di `data/interim/exports/` hanya hasil ekspor untuk anotasi atau analisis notebook.
