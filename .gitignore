@@ -27,6 +27,7 @@ models/final/*
 models/serving/*
 # Local baseline-training outputs and split archives; serving artifacts live above.
 models/judol_baseline_outputs*/
+models/judol_baseline_outputs*.zip
 
 # Raw browser response captures used only for parser research.
 configs/TweetDetail.json
