@@ -24,6 +24,20 @@ experiments/runs/*
 models/checkpoints/*
 models/final/*
 
+models/serving/*
+# Local baseline-training outputs and split archives; serving artifacts live above.
+models/judol_baseline_outputs*/
+
+# Raw browser response captures used only for parser research.
+configs/TweetDetail.json
+configs/UserOriginalsTimeline.json
+configs/UserPhotoTimeline.json
+configs/UserRepliesTimeline.json
+configs/UserRepostsTimeline.json
+configs/UserVideoTimeline.json
+configs/hometimeline.json
+configs/searchtimeline.json
+configs/yt_browse.json
 # Local SQLite collection databases
 *.sqlite
 *.sqlite3
