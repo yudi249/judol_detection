@@ -1,6 +1,8 @@
 # Extension API Contract
 
-This document defines the prediction contract shared by the WXT extension, mock predictor, FastAPI backend, storage logs, and React UI. Keep mock and real API responses compatible.
+The canonical machine-readable contract is `contracts/judollens-api.openapi.yaml`.
+This document explains its design for humans. The generated extension types originate
+from the YAML; FastAPI must expose the same supported HTTP contract.
 
 ## Design Goals
 
@@ -22,7 +24,7 @@ POST /predict
 POST /predict/batch
 ```
 
-Use `/predict` for manual analysis of one text. Use `/predict/batch` for content script DOM batches.
+Use `/predict` for manual analysis of one text. Use `/predict/batch` for client batches, including content-script DOM candidates and background-captured X posts.
 
 ## Batch Request
 
@@ -134,6 +136,10 @@ Use `/predict` for manual analysis of one text. Use `/predict/batch` for content
 - `display.highlight_ranges`: lets UI highlight terms and Unicode spans consistently
 - `errors`: allows partial failure without dropping the whole batch
 
+### Extension API Failure Policy
+
+The background worker returns any successful items and item-level errors to the caller. If an API-mode response contains one or more errors, it records an error session state and does not persist detection logs from that response. It never replaces a failed API item with a mock prediction.
+
 ## Unicode Evidence Example
 
 For text such as `ѕlοt gаcοr`, return spans with Unicode details:
@@ -167,9 +173,13 @@ For text such as `ѕlοt gаcοr`, return spans with Unicode details:
 
 ## TypeScript Contract
 
-Use camelCase in extension TypeScript and map to snake_case only at API boundaries if needed.
+HTTP request and response fields remain snake_case exactly as defined in the canonical
+OpenAPI YAML. Extension TypeScript uses the camelCase shared types below and maps them
+only at the API boundary.
 
-The canonical frontend implementation lives in `apps/browser-extension/src/shared/`. Keep `prediction.ts`, `messages.ts`, and storage log mappings aligned with this document when the mock predictor or FastAPI adapter changes.
+The canonical frontend implementation lives in `apps/browser-extension/src/shared/`.
+Keep `prediction.ts`, `messages.ts`, and storage log mappings aligned with this
+document when the mock predictor or FastAPI adapter changes.
 
 ```ts
 export type JudolLabel = "judol" | "non_judol"
