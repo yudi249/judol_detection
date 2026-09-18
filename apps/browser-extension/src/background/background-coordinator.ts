@@ -73,6 +73,8 @@ export async function handleJudolLensMessage(
       );
     case MESSAGE_TYPES.xTimelineItems:
       return handleXTimelineItems(message.payload, dependencies);
+    case MESSAGE_TYPES.youtubeBrowseItems:
+      return handleYouTubeBrowseItems(message.payload, dependencies);
     case MESSAGE_TYPES.xTimelineSubscribe:
     case MESSAGE_TYPES.xTimelineUnsubscribe:
       return undefined;
@@ -115,6 +117,53 @@ async function handleXTimelineItems(
 
   return {
     type: MESSAGE_TYPES.xTimelinePredictions,
+    payload: {
+      ...response.payload,
+      results: response.payload.results.map((result) => ({
+        ...result,
+        action: result.label === 'judol' ? settings.censorMode : result.action,
+      })),
+    },
+  };
+}
+
+async function handleYouTubeBrowseItems(
+  payload: Extract<
+    JudolLensRequestMessage,
+    { type: typeof MESSAGE_TYPES.youtubeBrowseItems }
+  >['payload'],
+  dependencies: BackgroundCoordinatorDependencies,
+): Promise<JudolLensResponseMessage> {
+  const response = await handleScanBatch(
+    {
+      requestId: `youtube-browse-${Date.now().toString(36)}`,
+      source: {
+        url: payload.sourceUrl,
+        platform: 'youtube',
+        pageTitle: payload.pageTitle,
+        capturedAt: new Date().toISOString(),
+      },
+      client: {
+        extensionVersion: '0.0.0',
+        predictionMode: 'mock',
+        threshold: 0.75,
+      },
+      items: payload.items.map((item) => ({
+        ...item,
+        context: {
+          kind: 'title',
+          selectorHint: 'ytd-rich-item-renderer',
+          visible: true,
+          languageHint: 'id',
+        },
+      })),
+    },
+    dependencies,
+  );
+  const settings = await getExtensionSettings(dependencies.storageArea);
+
+  return {
+    type: MESSAGE_TYPES.youtubeBrowsePredictions,
     payload: {
       ...response.payload,
       results: response.payload.results.map((result) => ({

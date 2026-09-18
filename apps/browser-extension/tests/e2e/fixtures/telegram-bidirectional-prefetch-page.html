@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Telegram Web JudolLens viewport fixture</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        background: #dfe7ef;
+        color: #17212b;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        margin: 0;
+        padding: 32px;
+      }
+      #telegram-reader {
+        background: #8bafc6;
+        border: 1px solid #6d8ca0;
+        border-radius: 12px;
+        height: 260px;
+        margin: 0 auto;
+        overflow-y: auto;
+        padding: 20px;
+        width: min(680px, 100%);
+      }
+      .bubble {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 1px 1px rgb(0 0 0 / 12%);
+        line-height: 1.4;
+        margin: 20px 0;
+        min-height: 72px;
+        padding: 16px;
+      }
+      .spacer { color: #667684; }
+      .clean-bubble { background: #e8f8e8; }
+    </style>
+  </head>
+  <body>
+    <main id="telegram-reader" aria-label="Pesan Telegram">
+      <article class="bubble clean-bubble" id="control-bubble"><div class="bubble-content-wrapper"><span class="translatable-message">Jadwal praktikum besok pukul sembilan.</span></div></article>
+      <article class="bubble spacer"><div class="bubble-content-wrapper"><span class="translatable-message">Pesan pengisi awal satu.</span></div></article>
+      <article class="bubble spacer"><div class="bubble-content-wrapper"><span class="translatable-message">Pesan pengisi awal dua.</span></div></article>
+      <article class="bubble spacer"><div class="bubble-content-wrapper"><span class="translatable-message">Pesan pengisi awal tiga.</span></div></article>
+      <article class="bubble spacer"><div class="bubble-content-wrapper"><span class="translatable-message">Pesan pengisi awal empat.</span></div></article>
+      <article class="bubble spacer"><div class="bubble-content-wrapper"><span class="translatable-message">Pesan pengisi awal lima.</span></div></article>
+      <article class="bubble" id="above-judol"><div class="bubble-content-wrapper"><span class="translatable-message">Bonus slot gacor untuk anggota baru malam ini.</span></div></article>
+      <article class="bubble spacer"><div class="bubble-content-wrapper"><span class="translatable-message">Pesan pembaca tengah satu.</span></div></article>
+      <article class="bubble spacer"><div class="bubble-content-wrapper"><span class="translatable-message">Pesan pembaca tengah dua.</span></div></article>
+      <article class="bubble spacer"><div class="bubble-content-wrapper"><span class="translatable-message">Pesan pembaca tengah tiga.</span></div></article>
+      <article class="bubble spacer"><div class="bubble-content-wrapper"><span class="translatable-message">Pesan pembaca tengah empat.</span></div></article>
+      <article class="bubble" id="below-judol"><div class="bubble-content-wrapper"><span class="translatable-message">Deposit 10k untuk slot gacor sekarang.</span></div></article>
+      <article class="bubble spacer"><div class="bubble-content-wrapper"><span class="translatable-message">Pesan pengisi akhir satu.</span></div></article>
+      <article class="bubble spacer"><div class="bubble-content-wrapper"><span class="translatable-message">Pesan pengisi akhir dua.</span></div></article>
+      <article class="bubble spacer"><div class="bubble-content-wrapper"><span class="translatable-message">Pesan pengisi akhir tiga.</span></div></article>
+    </main>
+    <script>
+      document.querySelector('#telegram-reader').scrollTop = 760;
+    </script>
+  </body>
+</html>

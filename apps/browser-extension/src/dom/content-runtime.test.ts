@@ -1,8 +1,58 @@
 import { describe, expect, it, vi } from 'vitest';
 
+vi.hoisted(() => {
+  vi.stubGlobal('defineContentScript', () => undefined);
+});
+
+vi.mock('@/dom', () => ({}));
+vi.mock('@/shared', () => ({}));
+vi.mock('wxt/browser', () => ({ browser: {} }));
+
+import { getYouTubePageModeTransition, isYouTubeHomeUrl } from '../../entrypoints/content';
 import { registerRuntimeMessageListenerSafely, sendRuntimeMessageSafely } from './content-runtime';
 
+describe('YouTube Home URL routing', () => {
+  it('recognizes only HTTPS YouTube root paths as Home', () => {
+    expect(isYouTubeHomeUrl('https://youtube.com')).toBe(true);
+    expect(isYouTubeHomeUrl('https://www.youtube.com/')).toBe(true);
+    expect(isYouTubeHomeUrl('https://m.youtube.com/?persist_app=1')).toBe(true);
+    expect(isYouTubeHomeUrl('http://youtube.com/')).toBe(false);
+    expect(isYouTubeHomeUrl('https://youtube.com/feed/subscriptions')).toBe(false);
+    expect(isYouTubeHomeUrl('https://youtu.be/')).toBe(false);
+  });
+
+  it('switches from browse reconciliation to generic scanning after navigating Home to watch', () => {
+    expect(
+      getYouTubePageModeTransition('https://www.youtube.com/', 'https://www.youtube.com/watch?v=abc'),
+    ).toEqual({ from: 'browse', to: 'generic' });
+  });
+
+  it('switches from generic scanning to browse reconciliation after navigating watch to Home', () => {
+    expect(
+      getYouTubePageModeTransition('https://www.youtube.com/watch?v=abc', 'https://www.youtube.com/'),
+    ).toEqual({ from: 'generic', to: 'browse' });
+  });
+
+  it('does not restart the current lifecycle for a same-mode navigation', () => {
+    expect(
+      getYouTubePageModeTransition(
+        'https://www.youtube.com/watch?v=abc',
+        'https://www.youtube.com/results?search_query=judol',
+      ),
+    ).toBeNull();
+  });
+});
 describe('content runtime messaging', () => {
+  it('sends an arbitrary YouTube subscribe message through the generic helper', async () => {
+    const sendMessage = vi.fn().mockResolvedValue(undefined);
+    const message = { type: 'judollens:youtube-browse-subscribe' } as const;
+
+    await expect(
+      sendRuntimeMessageSafely({ isInvalid: false }, sendMessage, message),
+    ).resolves.toBeUndefined();
+
+    expect(sendMessage).toHaveBeenCalledWith(message);
+  });
   it('abandons a message when its extension context is invalidated', async () => {
     const sendMessage = vi
       .fn()

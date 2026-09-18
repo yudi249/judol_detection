@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Beranda YouTube JudolLens</title>
+    <style>
+      body {
+        background: #0f0f0f;
+        color: #f1f1f1;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        margin: 0;
+      }
+
+      main {
+        margin: 24px auto;
+        max-width: 960px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      .grid {
+        display: grid;
+        gap: 20px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      ytd-rich-item-renderer {
+        background: #212121;
+        border-radius: 12px;
+        box-sizing: border-box;
+        display: block;
+        min-height: 190px;
+        padding: 16px;
+      }
+
+      ytd-rich-item-renderer a {
+        color: #f1f1f1;
+        display: block;
+        font-size: 18px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      ytd-rich-item-renderer p {
+        color: #aaa;
+        margin-bottom: 0;
+      }
+
+      .shorts-card {
+        border: 1px solid #ff4e45;
+      }
+    </style>
+  </head>
+  <body>
+    <main aria-label="Fixture beranda YouTube">
+      <h1>Rekomendasi untuk Anda</h1>
+      <section class="grid" aria-label="Daftar video">
+        <ytd-rich-item-renderer data-surface="blur">
+          <a href="/watch?v=browse-blur">Kartu video diburamkan</a>
+          <p>Konten pengujian untuk lapisan buram.</p>
+        </ytd-rich-item-renderer>
+
+        <ytd-rich-item-renderer data-surface="warn">
+          <a href="/watch?v=browse-warn">Kartu video peringatan</a>
+          <p>Konten pengujian untuk label peringatan.</p>
+        </ytd-rich-item-renderer>
+
+        <ytd-rich-item-renderer data-surface="hide">
+          <a href="/watch?v=browse-hide">Kartu video disembunyikan</a>
+          <p>Konten pengujian untuk penghapusan kartu.</p>
+        </ytd-rich-item-renderer>
+
+        <ytd-rich-item-renderer data-surface="unrelated">
+          <a href="/watch?v=browse-unrelated">Kartu video biasa</a>
+          <p>Konten ini tidak menerima prediksi.</p>
+        </ytd-rich-item-renderer>
+
+        <ytd-rich-item-renderer class="shorts-card" data-surface="shorts">
+          <a href="/shorts/browse-shorts">Kartu Shorts tetap terlihat</a>
+          <p>ID Shorts ini sengaja cocok dengan prediksi positif.</p>
+        </ytd-rich-item-renderer>
+      </section>
+    </main>
+  </body>
+</html>

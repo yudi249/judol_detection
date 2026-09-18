@@ -80,6 +80,10 @@ preserves the card with an overlay, `warn` adds a compact pointer-transparent
 whole matching card. Stats, logs, model metadata, and API semantics remain
 shared; raw response payloads and tweet text are not persisted.
 
+On YouTube Home Browse, the content script subscribes to a background monitor before it begins capture. The monitor reads only successful HTTPS `/youtubei/v1/browse` responses from YouTube hosts, extracts selected rich-grid `lockupViewModel` video IDs and titles, and routes `{ id, text }` through the same generic batch contract with YouTube source metadata. The content script retains at most 100 positive decisions in memory and reconciles only `ytd-rich-item-renderer` cards containing a matching `/watch?v=` ID: blur adds one full-card overlay, warn adds a compact pointer-transparent `Terdeteksi JudolLens` badge, and hide removes the card. Generic YouTube title scans apply all three actions to the nearest regular card: blur adds the full-card overlay, warn attaches the badge above the card content, and hide removes the card. Shorts, malformed links, unmatched cards, raw response bodies, and video titles are not persisted outside existing bounded detection evidence.
+
+On Telegram Web, when the rendered `.bubble` elements share a resolvable scrollable reader, the content script replaces only its initial generic page-wide scan lifecycle with a content-side scheduler. Its `IntersectionObserver` admits rendered bubbles within the reader's pixel height above and below the viewport; queued scans prioritize visible bubbles, the active scroll direction, then the opposite side, and serialize at most 12 roots through the unchanged batch path. It retains only DOM references and observer state until navigation or cleanup. If the reader cannot be resolved or `IntersectionObserver` is unavailable, the ordinary initial scan and `MutationObserver` lifecycle remains active so Telegram is never silently skipped. No Telegram API capture, background message, storage key, cached prediction, or OpenAPI field is added.
+
 ### Background Service Worker
 
 Responsibilities:

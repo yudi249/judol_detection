@@ -281,6 +281,20 @@ tweet card.
 remains `/predict/batch`; the narrow X DOM dependency is deliberately limited to
 `article[data-testid="tweet"]` and status links.
 
+## Milestone 17: Telegram Bidirectional Reader Prefetch
+
+Goal: protect rendered Telegram Web message bubbles before they enter the active reader in either scroll direction.
+
+- resolve the scrollable ancestor shared by the most rendered `.bubble` elements
+- use a one-reader-height pixel `IntersectionObserver` window above and below the reader
+- prioritize visible bubbles, then the current scroll direction, then the opposite side
+- serialize existing root scans in batches of at most 12 without new messages, storage, caches, or API fields
+- retain the generic initial scan and dynamic-observer path when no reader resolves or `IntersectionObserver` is unavailable
+
+Done when a loaded-extension HTTPS fixture shows both above- and below-reader judol bubbles annotated before they become physically visible, while a clean control bubble remains unchanged.
+
+`EXT-017` keeps Telegram state ephemeral in the content script: DOM root references, observer registrations, and direction only. It does not capture Telegram network traffic or retain raw message text beyond the existing bounded prediction/log path.
+
 ## MVP Boundaries
 
 MVP 1 is complete after Milestone 10.

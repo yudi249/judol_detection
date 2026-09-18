@@ -811,4 +811,138 @@ describe('background prediction coordinator', () => {
     );
   });
 
+  it('routes YouTube browse items through the generic batch contract with title context and overrides only positive actions', async () => {
+    await area.setItem(STORAGE_KEYS.settings, {
+      ...defaultExtensionSettings,
+      censorMode: 'hide',
+    });
+    const mockPredictBatch = vi.fn(async (request: PredictionBatchRequest) =>
+      predictBatchWithMock(request),
+    );
+
+    const response = await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.youtubeBrowseItems,
+        payload: {
+          sourceUrl: 'https://www.youtube.com/',
+          pageTitle: 'YouTube Home',
+          items: [
+            { id: 'browse-judol', text: 'bonus slot gacor' },
+            { id: 'browse-normal', text: 'slot waktu praktikum sudah penuh' },
+          ],
+        },
+      },
+      { storageArea: area, mockPredictBatch },
+    );
+
+    expect(mockPredictBatch).toHaveBeenCalledWith({
+      requestId: expect.stringMatching(/^youtube-browse-/),
+      source: {
+        url: 'https://www.youtube.com/',
+        platform: 'youtube',
+        pageTitle: 'YouTube Home',
+        capturedAt: expect.any(String),
+      },
+      client: {
+        extensionVersion: '0.0.0',
+        predictionMode: 'mock',
+        threshold: 0.75,
+      },
+      items: [
+        {
+          id: 'browse-judol',
+          text: 'bonus slot gacor',
+          context: {
+            kind: 'title',
+            selectorHint: 'ytd-rich-item-renderer',
+            visible: true,
+            languageHint: 'id',
+          },
+        },
+        {
+          id: 'browse-normal',
+          text: 'slot waktu praktikum sudah penuh',
+          context: {
+            kind: 'title',
+            selectorHint: 'ytd-rich-item-renderer',
+            visible: true,
+            languageHint: 'id',
+          },
+        },
+      ],
+    });
+    expect(response).toEqual(
+      expect.objectContaining({
+        type: MESSAGE_TYPES.youtubeBrowsePredictions,
+        payload: expect.objectContaining({
+          results: [
+            expect.objectContaining({ id: 'browse-judol', label: 'judol', action: 'hide' }),
+            expect.objectContaining({ id: 'browse-normal', label: 'non_judol', action: 'none' }),
+          ],
+        }),
+      }),
+    );
+  });
+
+  it('does not persist normal detection logs for terminal API errors from YouTube browse items', async () => {
+    await area.setItem(STORAGE_KEYS.settings, {
+      ...defaultExtensionSettings,
+      predictionMode: 'api',
+    });
+    const apiPredictBatch = vi.fn().mockResolvedValue({
+      requestId: 'youtube-api-failure',
+      model: {
+        name: 'api',
+        version: '0.1.0',
+        architecture: 'indobert-base-p1',
+        isMock: false,
+      },
+      summary: {
+        totalItems: 1,
+        judolCount: 1,
+        unicodeSuspiciousCount: 0,
+        processingTimeMs: 0,
+      },
+      results: [
+        {
+          id: 'browse-judol',
+          label: 'judol',
+          confidence: 0.99,
+          riskLevel: 'high',
+          action: 'blur',
+          reasons: [],
+          matchedTerms: ['slot'],
+          unicodeAnalysis: {
+            hasSuspiciousUnicode: false,
+            suspiciousCount: 0,
+            spans: [],
+          },
+          display: { snippet: 'bonus slot gacor', highlightRanges: [] },
+        },
+      ],
+      errors: [{ code: 'api_prediction_failed', message: 'service unavailable' }],
+    });
+
+    const response = await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.youtubeBrowseItems,
+        payload: {
+          sourceUrl: 'https://www.youtube.com/',
+          items: [{ id: 'browse-judol', text: 'bonus slot gacor' }],
+        },
+      },
+      { storageArea: area, apiPredictBatch },
+    );
+
+    expect(response).toEqual(
+      expect.objectContaining({
+        type: MESSAGE_TYPES.youtubeBrowsePredictions,
+        payload: expect.objectContaining({
+          results: [expect.objectContaining({ id: 'browse-judol', action: 'blur' })],
+          errors: [expect.objectContaining({ code: 'api_prediction_failed' })],
+        }),
+      }),
+    );
+    expect(area.peek(STORAGE_KEYS.detectionLogs)).toBeUndefined();
+  });
 });

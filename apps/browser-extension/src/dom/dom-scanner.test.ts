@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createScanBatchRequest,
   detectPlatformFromUrl,
+  scanTelegramMessageCandidateRefs,
   scanVisibleTextCandidateRefs,
   scanVisibleTextCandidates,
 } from './dom-scanner';
@@ -126,6 +127,50 @@ describe('content DOM scanner', () => {
       },
     });
     expect(request.items[0]).not.toHaveProperty('textNode');
+  });
+
+  it('collects each Telegram translatable message as one complete candidate', () => {
+    document.body.innerHTML = `
+      <div class="bubble">
+        <span class="translatable-message">
+          <img alt="💥" />
+          <a href="https://mampir.fit/cuanmewah"><strong>NAGAPOKER</strong></a>
+          – Tempatnya Cuan Gila-Gilaan!
+          <br />
+          Mau taruhan bola yang seru? Saatnya gabung bareng
+          <a href="https://mampir.fit/cuanmewah"><strong>NAGAPOKER</strong></a>!
+          <br />
+          🌐 Link Gacor
+          <a href="https://mampir.fit/cuanmewah">https://mampir.fit/cuanmewah</a>
+          <br />
+          🎉 Bonus New Member
+          <br />
+          💰 Bonus Deposit Harian
+          <br />
+          Minimal deposit 10.000
+          <br />
+          Klik sekarang &amp; buktikan sendiri, di sini setiap taruhan bisa jadi jackpot!
+          Jangan cuma nonton, jadi pemenangnya!
+          WD berapapun di bayar lunas!!
+        </span>
+      </div>
+    `;
+
+    const refs = scanTelegramMessageCandidateRefs(document.body);
+
+    expect(refs).toHaveLength(1);
+    expect(refs[0].item).toEqual({
+      id: 'scan-node-0',
+      text:
+        '💥 NAGAPOKER – Tempatnya Cuan Gila-Gilaan! Mau taruhan bola yang seru? Saatnya gabung bareng NAGAPOKER! 🌐 Link Gacor https://mampir.fit/cuanmewah 🎉 Bonus New Member 💰 Bonus Deposit Harian Minimal deposit 10.000 Klik sekarang & buktikan sendiri, di sini setiap taruhan bisa jadi jackpot! Jangan cuma nonton, jadi pemenangnya! WD berapapun di bayar lunas!!',
+      context: {
+        kind: 'message',
+        selectorHint: '.translatable-message',
+        visible: true,
+        languageHint: 'id',
+      },
+    });
+    expect(refs[0].textNodes).toHaveLength(14);
   });
 });
 

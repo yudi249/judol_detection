@@ -7,6 +7,7 @@ import { getExtensionSettings } from '@/storage';
 import { handleJudolLensMessage } from '../src/background';
 import { registerManualAnalysisContextMenu } from '../src/background/manual-context-menu';
 import { XTimelineMonitor } from '../src/background/x-timeline-monitor';
+import { YouTubeBrowseMonitor } from '../src/background/youtube-browse-monitor';
 import { browser } from 'wxt/browser';
 import type { Browser } from 'wxt/browser';
 import type { JudolLensRequestMessage } from '../src/shared';
@@ -86,9 +87,29 @@ export default defineBackground(() => {
       }
     },
   );
-
+  const youtubeBrowseMonitor = new YouTubeBrowseMonitor(
+    debuggerTransport,
+    async (tabId, items) => {
+      const tab = await browser.tabs.get(tabId);
+      const response = await handleJudolLensMessage(
+        {
+          type: 'judollens:youtube-browse-items',
+          payload: {
+            sourceUrl: tab.url ?? 'https://youtube.com/',
+            pageTitle: tab.title,
+            items,
+          },
+        },
+        { apiPredictBatch: predictBatchWithApi },
+      );
+      if (response?.type === 'judollens:youtube-browse-predictions') {
+        await browser.tabs.sendMessage(tabId, response);
+      }
+    },
+  );
   browser.tabs.onRemoved.addListener((tabId) => {
     void xTimelineMonitor.unsubscribe(tabId);
+    void youtubeBrowseMonitor.unsubscribe(tabId);
   });
 
   browser.runtime.onMessage.addListener(
@@ -102,10 +123,20 @@ export default defineBackground(() => {
         return true;
       }
 
+      if (message.type === 'judollens:youtube-browse-subscribe' && sender.tab?.id !== undefined) {
+        void youtubeBrowseMonitor.subscribe(sender.tab.id).then(() => sendResponse(undefined));
+        return true;
+      }
+      if (message.type === 'judollens:youtube-browse-unsubscribe' && sender.tab?.id !== undefined) {
+        void youtubeBrowseMonitor.unsubscribe(sender.tab.id).then(() => sendResponse(undefined));
+        return true;
+      }
+
       void handleJudolLensMessage(message, { apiPredictBatch: predictBatchWithApi })
         .then(async (response) => {
           if (
-            response?.type === 'judollens:x-timeline-predictions' &&
+            (response?.type === 'judollens:x-timeline-predictions' ||
+              response?.type === 'judollens:youtube-browse-predictions') &&
             sender.tab?.id !== undefined
           ) {
             await browser.tabs.sendMessage(sender.tab.id, response);

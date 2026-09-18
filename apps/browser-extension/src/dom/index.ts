@@ -4,4 +4,6 @@ export * from './dom-scanner';
 export * from './dynamic-observer';
 export * from './overlay';
 export * from './selection-analyze-trigger';
+export * from './telegram-viewport-scheduler';
 export * from './x-timeline-reconciler';
+export * from './youtube-browse-reconciler';

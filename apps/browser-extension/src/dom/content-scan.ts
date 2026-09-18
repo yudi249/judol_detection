@@ -12,6 +12,7 @@ import { applyPredictionOverlays } from './overlay';
 import {
   createScanBatchMessage,
   createScanBatchRequest,
+  scanTelegramMessageCandidateRefs,
   scanVisibleTextCandidateRefs,
   type ScanBatchPageContext,
   type ScanCandidateRef,
@@ -64,9 +65,19 @@ export async function runJudolLensScanForRoots(
     return 0;
   }
 
-  const candidateRefs = collectCandidateRefs(options.roots, options.processedNodes);
+  const candidateRefs = collectCandidateRefs(
+    options.roots,
+    options.processedNodes,
+    platform === 'telegram',
+  );
   for (const ref of candidateRefs) {
-    pendingNodes.add(ref.textNode);
+    for (const textNode of getRefTextNodes(ref)) {
+      pendingNodes.add(textNode);
+    }
+  }
+
+  if (candidateRefs.length === 0) {
+    return 0;
   }
 
   try {
@@ -111,27 +122,40 @@ export async function runJudolLensScanForRoots(
       overlayOptions,
     );
     for (const ref of candidateRefs) {
-      options.processedNodes?.add(ref.textNode);
+      for (const textNode of getRefTextNodes(ref)) {
+        options.processedNodes?.add(textNode);
+      }
     }
     return applied;
   } finally {
     for (const ref of candidateRefs) {
-      pendingNodes.delete(ref.textNode);
+      for (const textNode of getRefTextNodes(ref)) {
+        pendingNodes.delete(textNode);
+      }
     }
   }
 }
 
+function getRefTextNodes(ref: ScanCandidateRef): Text[] {
+  return ref.textNodes ?? [ref.textNode];
+}
+
+
 function collectCandidateRefs(
   roots: ParentNode[],
-  processedNodes?: WeakSet<Node>,
+  processedNodes: WeakSet<Node> | undefined,
+  isTelegram: boolean,
 ): ScanCandidateRef[] {
-  const refs = roots.flatMap((root) =>
-    scanVisibleTextCandidateRefs(root, {
+  const refs = roots.flatMap((root) => {
+    const scanOptions = {
       processedNodes,
       pendingNodes,
       markProcessed: false,
-    }),
-  );
+    };
+    return isTelegram
+      ? scanTelegramMessageCandidateRefs(root, scanOptions)
+      : scanVisibleTextCandidateRefs(root, scanOptions);
+  });
 
   return refs.map((ref, index) => ({
     ...ref,

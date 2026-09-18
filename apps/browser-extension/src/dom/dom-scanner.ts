@@ -11,6 +11,8 @@ export { detectPlatformFromUrl } from '../shared';
 
 const DEFAULT_MIN_TEXT_LENGTH = 8;
 const DEFAULT_MAX_TEXT_LENGTH = 500;
+const MAX_PREDICTION_TEXT_LENGTH = 512;
+const TELEGRAM_MESSAGE_SELECTOR = '.translatable-message';
 const EXTENSION_VERSION = '0.0.0';
 
 const SKIPPED_TAGS = new Set([
@@ -27,10 +29,10 @@ const SKIPPED_TAGS = new Set([
 ]);
 
 export type ScanCandidate = PredictionItem;
-
 export type ScanCandidateRef = {
   item: ScanCandidate;
   textNode: Text;
+  textNodes?: Text[];
 };
 
 export type ScanVisibleTextOptions = {
@@ -103,6 +105,7 @@ export function scanVisibleTextCandidateRefs(
           context: buildCandidateContext(parentElement),
         },
         textNode: node as Text,
+        textNodes: [node as Text],
       });
       if (options.markProcessed ?? true) {
         processedNodes?.add(node);
@@ -110,6 +113,58 @@ export function scanVisibleTextCandidateRefs(
     }
 
     node = walker.nextNode();
+  }
+
+  return refs;
+}
+
+export function scanTelegramMessageCandidateRefs(
+  root: ParentNode,
+  options: ScanVisibleTextOptions = {},
+): ScanCandidateRef[] {
+  const processedNodes = options.processedNodes;
+  const maxTextLength = Math.min(
+    options.maxTextLength ?? MAX_PREDICTION_TEXT_LENGTH,
+    MAX_PREDICTION_TEXT_LENGTH,
+  );
+  const messages = getTelegramMessages(root);
+  const refs: ScanCandidateRef[] = [];
+
+  for (const message of messages) {
+    if (shouldSkipElement(message)) {
+      continue;
+    }
+
+    const { text, textNodes } = collectTelegramMessageText(message);
+    if (
+      text.length < (options.minTextLength ?? DEFAULT_MIN_TEXT_LENGTH) ||
+      textNodes.length === 0 ||
+      textNodes.some(
+        (node) => processedNodes?.has(node) || options.pendingNodes?.has(node),
+      )
+    ) {
+      continue;
+    }
+
+    refs.push({
+      item: {
+        id: `scan-node-${refs.length}`,
+        text: text.slice(0, maxTextLength),
+        context: {
+          kind: 'message',
+          selectorHint: TELEGRAM_MESSAGE_SELECTOR,
+          visible: true,
+          languageHint: 'id',
+        },
+      },
+      textNode: textNodes[0],
+      textNodes,
+    });
+    if (options.markProcessed ?? true) {
+      for (const node of textNodes) {
+        processedNodes?.add(node);
+      }
+    }
   }
 
   return refs;
@@ -154,6 +209,47 @@ function createRequestId(): string {
 
 function normalizeText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
+}
+
+function getTelegramMessages(root: ParentNode): HTMLElement[] {
+  const messages = [...root.querySelectorAll<HTMLElement>(TELEGRAM_MESSAGE_SELECTOR)];
+  return root instanceof HTMLElement && root.matches(TELEGRAM_MESSAGE_SELECTOR)
+    ? [root, ...messages]
+    : messages;
+}
+
+function collectTelegramMessageText(message: HTMLElement): {
+  text: string;
+  textNodes: Text[];
+} {
+  const textNodes: Text[] = [];
+  const parts: string[] = [];
+
+  const collect = (node: Node): void => {
+    if (node instanceof Text) {
+      textNodes.push(node);
+      parts.push(node.data);
+      return;
+    }
+    if (!(node instanceof HTMLElement)) {
+      return;
+    }
+    if (node !== message && shouldSkipElement(node)) {
+      return;
+    }
+    if (node.tagName === 'IMG' && node.getAttribute('alt')) {
+      parts.push(node.getAttribute('alt')!);
+    }
+    if (node.tagName === 'BR') {
+      parts.push(' ');
+    }
+    for (const child of node.childNodes) {
+      collect(child);
+    }
+  };
+
+  collect(message);
+  return { text: normalizeText(parts.join('')), textNodes };
 }
 
 function shouldSkipElement(element: Element): boolean {

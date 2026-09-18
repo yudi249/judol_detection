@@ -26,6 +26,10 @@ export const MESSAGE_TYPES = {
   xTimelineUnsubscribe: 'judollens:x-timeline-unsubscribe',
   xTimelineItems: 'judollens:x-timeline-items',
   xTimelinePredictions: 'judollens:x-timeline-predictions',
+  youtubeBrowseSubscribe: 'judollens:youtube-browse-subscribe',
+  youtubeBrowseUnsubscribe: 'judollens:youtube-browse-unsubscribe',
+  youtubeBrowseItems: 'judollens:youtube-browse-items',
+  youtubeBrowsePredictions: 'judollens:youtube-browse-predictions',
 } as const;
 
 export type XTimelineSubscribeMessage = {
@@ -47,6 +51,28 @@ export type XTimelineItemsMessage = {
 
 export type XTimelinePredictionsMessage = {
   type: typeof MESSAGE_TYPES.xTimelinePredictions;
+  payload: PredictionBatchResponse;
+};
+
+export type YouTubeBrowseSubscribeMessage = {
+  type: typeof MESSAGE_TYPES.youtubeBrowseSubscribe;
+};
+
+export type YouTubeBrowseUnsubscribeMessage = {
+  type: typeof MESSAGE_TYPES.youtubeBrowseUnsubscribe;
+};
+
+export type YouTubeBrowseItemsMessage = {
+  type: typeof MESSAGE_TYPES.youtubeBrowseItems;
+  payload: {
+    sourceUrl: string;
+    pageTitle?: string;
+    items: Array<{ id: string; text: string }>;
+  };
+};
+
+export type YouTubeBrowsePredictionsMessage = {
+  type: typeof MESSAGE_TYPES.youtubeBrowsePredictions;
   payload: PredictionBatchResponse;
 };
 
@@ -163,7 +189,10 @@ export type JudolLensRequestMessage =
   | SaveManualAnalysisMessage
   | XTimelineSubscribeMessage
   | XTimelineUnsubscribeMessage
-  | XTimelineItemsMessage;
+  | XTimelineItemsMessage
+  | YouTubeBrowseSubscribeMessage
+  | YouTubeBrowseUnsubscribeMessage
+  | YouTubeBrowseItemsMessage;
 
 export type JudolLensResponseMessage =
   | ScanBatchResponseMessage
@@ -171,4 +200,5 @@ export type JudolLensResponseMessage =
   | ManualAnalysisResponseMessage
   | ManualAnalyzeResponseMessage
   | SaveManualAnalysisResponseMessage
-  | XTimelinePredictionsMessage;
+  | XTimelinePredictionsMessage
+  | YouTubeBrowsePredictionsMessage;

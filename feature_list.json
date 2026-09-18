@@ -775,6 +775,48 @@
         "`pnpm test:e2e` passed 13 Playwright tests, including the production runtime-message X coverage scenario. The scenario verified Home/reply blur, profile warning, detail removal, and an unchanged unrelated card; screenshot `docs/extension/screenshots/ext-019-x-timeline-coverage.png` visibly records two blurred cards, the profile badge, and the readable unrelated card."
       ],
       "notes": "The Chrome debugger lifecycle is scoped to the subscribing X tab and detaches on content-script unsubscribe or tab closure. X DOM matching depends only on `article[data-testid=\"tweet\"]` and a numeric `/status/<id>` link. Chrome provides `onDetach` only with tab ID and reason, so a truly simultaneous unrelated same-tab `canceled_by_user` event is indistinguishable from a delayed expected explicit detach; all other unexpected detach reasons clean active and initializing state. Live account/session behavior remains a manual X validation item."
+    },
+    {
+      "id": "EXT-016",
+      "priority": 16,
+      "area": "browser-extension",
+      "title": "Detect YouTube Home Browse GraphQL videos by video ID",
+      "user_visible_behavior": "Captured regular YouTube Home Browse videos and generic title scans receive the configured censor action only on their enclosing `ytd-rich-item-renderer` `/watch?v=` card: blur overlays the entire card, warn adds a compact `Terdeteksi JudolLens` badge above its content, and hide removes the entire card. Shorts and unmatched cards remain unchanged.",
+      "status": "passing",
+      "verification": [
+        "Run the extension unit suite, TypeScript compilation, and production build from apps/browser-extension.",
+        "Run `pnpm exec playwright test tests/e2e/youtube-browse-coverage.spec.ts` from apps/browser-extension.",
+        "Run the repository standard startup verification."
+      ],
+      "evidence": [
+        "The background monitor observes only successful HTTPS YouTube `/youtubei/v1/browse` responses, extracts selected rich-grid video `{ id, text }` items, and keeps raw response bodies plus per-tab dispatch state ephemeral and bounded.",
+        "Browse items use the existing generic prediction batch path with YouTube source metadata, preserving mock/API selection, session stats, bounded logs, and model metadata.",
+        "The content script subscribes before the monitor begins capture, retains at most 100 positive decisions, and reconciles only matching regular `ytd-rich-item-renderer` `/watch?v=` cards. Generic YouTube title detections route blur, warn, and hide to the nearest regular card; Shorts, malformed links, and unmatched cards are unchanged.",
+        "`pnpm test:run` passed 166 tests in 23 files; `pnpm compile` and `pnpm build` passed. The repository startup path `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./init.ps1` passed.",
+        "The loaded-extension Playwright scenario passed: one matching card was blurred as a full card, one warned from the card, one removed, and unrelated plus positive-ID Shorts cards remained unchanged. Screenshot: `docs/extension/screenshots/ext-020-youtube-browse-home.png`."
+      ],
+      "notes": "Chrome debugger capture is scoped to the subscribing YouTube Home tab and detaches on unsubscribe or tab closure. This feature covers the selected Home Browse rich-grid payload and regular `/watch?v=` cards only; live logged-in YouTube traffic remains a manual validation item."
+    },
+    {
+      "id": "EXT-017",
+      "priority": 17,
+      "area": "browser-extension",
+      "title": "Prefetch rendered Telegram Web message bubbles bidirectionally",
+      "user_visible_behavior": "Rendered Telegram Web message bubbles around the active reader are predicted through the existing batch contract before entering view in either scroll direction; visible bubbles are protected first, and nonmatching bubbles remain unchanged.",
+      "status": "passing",
+      "verification": [
+        "Run `pnpm test:run`, `pnpm compile`, `pnpm build`, and `pnpm check:api` from apps/browser-extension.",
+        "Run `pnpm exec playwright test tests/e2e/telegram-bidirectional-prefetch.spec.ts` and `pnpm test:e2e` from apps/browser-extension.",
+        "Run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./init.ps1` from the repository root."
+      ],
+      "evidence": [
+        "The Telegram-only content scheduler resolves the common scrollable `.bubble` reader, observes one reader-height pixel window above and below it, serializes existing root scans in batches of at most 12, and prioritizes visible, directional, then opposite-side candidates.",
+        "The generic initial scan plus dynamic-observer lifecycle remains the fallback when the reader cannot be resolved or `IntersectionObserver` is unavailable; no Telegram API capture, contract field, storage key, or prediction cache was added.",
+        "`pnpm test:run` passed 180 tests in 24 files; `pnpm compile`, `pnpm build`, and `pnpm check:api` passed. `pnpm test:e2e` passed 15 loaded-extension scenarios.",
+        "The Telegram message scanner now sends a rendered `.translatable-message` as one bounded (512-character) batch item, including image alt text and nested-link text. It retains the generic text-node scanner when a Telegram fixture or changed DOM lacks that message selector, so the existing bubble scheduler remains functional. Focused content-scanner and DOM-scanner tests passed 19 tests; the full unit suite passed 182 tests in 24 files; compile, production build, OpenAPI generation check, and the loaded-extension Telegram viewport regression passed historically.",
+        "The scheduler now explicitly queues initially rendered bubbles within the existing one-reader-height prefetch window when the Telegram content entrypoint starts. This closes the initial `IntersectionObserver` callback race without changing scheduler callers that do not opt in. The new regression failed before the correction; `pnpm compile` and the focused DOM scanner/content scan/overlay/scheduler suite passed 57 tests. The focused loaded-extension Telegram regression must still be rerun after tracing its current injection/background-message failure; it is not claimed as verification for this correction."
+      ],
+      "notes": "The selector boundary is rendered Telegram `.bubble` elements and the resolved scroll container may change with Telegram Web DOM updates. The scheduler ignores disconnected queued roots, stops observers on lifecycle cleanup, keeps all scheduling state ephemeral, and explicitly queues startup-window bubbles from the Telegram content entrypoint. Live logged-in Telegram validation and a fresh loaded-extension fixture pass remain required."
     }
   ]
 }

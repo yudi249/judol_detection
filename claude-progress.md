@@ -3057,3 +3057,150 @@
 - Next best step:
   - Reload the unpacked `.output/chrome-mv3` directory in Chrome. API-001
     remains blocked only on a final human-annotated model artifact.
+
+### Session 100
+
+- Date: 2026-09-17
+- Goal: deliver production runtime handling for YouTube Home Browse GraphQL videos through the existing extension prediction contract.
+- Root cause:
+  - YouTube regular Home cards require stable video-ID reconciliation because DOM text scanning cannot reliably associate a later prediction with a virtualized card. The existing X GraphQL capture/reconciliation design provided the bounded, contract-compatible pattern.
+- Completed:
+  - Added a YouTube Browse parser that accepts only selected rich-grid `lockupViewModel` video records with trimmed IDs and titles, deduplicates IDs, and rejects unsupported content types.
+  - Added a tab-scoped Chrome debugger monitor for successful HTTPS YouTube `/youtubei/v1/browse` responses. It parses only terminal response bodies, bounds per-tab dispatch IDs, and cleans pending state across unsubscribe and detach paths.
+  - Routed Browse items through the existing background prediction coordinator and its generic mock/API batch contract; no OpenAPI wire shape or persistence contract changed.
+  - Added a YouTube Home content lifecycle, message subscription, bounded regular-card reconciler, and scoped blur/warn/hide overlays. It matches only `/watch?v=` video IDs, leaves Shorts and unmatched cards unchanged, and retains no raw page payload.
+  - Added parser, monitor, coordinator, reconciler, content-runtime, overlay, and loaded-extension E2E coverage. The browser scenario uses an HTTPS `www.youtube.com` fixture and records `docs/extension/screenshots/ext-020-youtube-browse-home.png`.
+- Verification:
+  - RED: `pnpm compile` exposed two test-only type errors: a synchronous Vitest mock did not satisfy the asynchronous `PredictBatch` contract, and inferred mixed tuples widened `requestId` to `string | number`.
+  - GREEN: the mock is explicitly async and unsupported-response tuples are typed. `pnpm test:run` passed **163 tests in 23 files**; `pnpm compile` and `pnpm build` passed.
+  - `pnpm exec playwright test tests/e2e/youtube-browse-coverage.spec.ts` passed **1 test**. It observed a matching blur overlay, warning badge, removed hide card, and unchanged unrelated plus positive-ID Shorts cards.
+  - Independent review found no critical or important defect in parser safety, debugger lifecycle, message routing, or the notification-only runtime-message boundary.
+- Known risk:
+  - This covers only selected YouTube Home Browse rich-grid responses and normal `/watch?v=` cards. Live logged-in YouTube delivery and renderer variants remain manual validation items.
+- Next best step:
+  - Complete final human annotation, train and validate the final clean serving artifact, then repeat the API contract smoke and API-mode browser scenario before marking API-001 passing.
+
+### Session 101
+
+- Date: 2026-09-17
+- Goal: make generic YouTube title detections blur their complete regular video card rather than only the title text.
+- Root cause:
+  - Generic YouTube scanning used the text-node parent as its overlay target. The screenshot and live DOM evidence showed `span.judollens-detected` wrapping only the title inside a regular `ytd-rich-item-renderer`, while the thumbnail and metadata stayed readable.
+- Completed:
+  - For `blur` only, generic YouTube title detections now promote their target to the nearest `ytd-rich-item-renderer` and reuse the scoped full-card YouTube overlay. Warning and hide retain their existing title-local behavior; X card behavior is unchanged.
+  - Added a regression with a realistic thumbnail/title card fixture and strengthened the loaded-extension scenario to require the full-card marker and direct overlay while forbidding the inline text wrapper.
+- Verification:
+  - RED: `pnpm exec vitest run src/dom/overlay.test.ts` failed the new card-level assertion because generic scanning left `data-judollens-youtube-blur` absent.
+  - GREEN: focused overlay/reconciler tests passed **25 tests**; `pnpm test:run` passed **164 tests in 23 files**; `pnpm compile` and `pnpm build` passed.
+  - `pnpm exec playwright test tests/e2e/youtube-browse-coverage.spec.ts` passed **1 test**, asserting the full-card blur marker and direct overlay, with no inline title wrapper.
+- Known risk:
+  - Generic YouTube title scanning relies on the stable enclosing `ytd-rich-item-renderer` selector. New YouTube renderer variants outside that container retain text-level behavior until explicitly covered.
+- Next best step:
+  - Reload the unpacked extension, then manually validate an actual YouTube Home card with its thumbnail and metadata before the final-model API evaluation cycle.
+
+### Session 102
+
+- Date: 2026-09-17
+- Goal: apply generic YouTube warning and hide actions to the full regular video card, matching blur behavior.
+- Completed:
+  - Generic scan predictions inside `ytd-rich-item-renderer` now resolve `blur`, `warn`, and `hide` to the enclosing regular video card.
+  - Warning appends the existing pointer-transparent card badge; hide removes the entire card. No prediction response shape, storage contract, or X behavior changed.
+  - Added unit regressions for generic card-level warning and hide, plus loaded-extension assertions that the warning marker and badge are direct descendants of the expected card.
+- Verification:
+  - RED: `pnpm exec vitest run src/dom/overlay.test.ts` failed the new warning and hide regressions because generic scans still targeted the title parent.
+  - GREEN: focused overlay suite passed **18 tests**. `pnpm test:run` passed **166 tests in 23 files**; `pnpm compile` and `pnpm build` passed.
+  - `pnpm exec playwright test tests/e2e/youtube-browse-coverage.spec.ts` passed **1 test**, proving a full-card blur, card-level warning, full-card hide, and unchanged unrelated/Shorts cards.
+  - `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./init.ps1` passed the repository startup verification.
+- Known risk:
+  - Full-card promotion is restricted to regular `ytd-rich-item-renderer` cards. Unknown renderer variants remain text-local by design.
+- Next best step:
+  - Reload the unpacked extension, then manually validate blur, warning, and hide on actual YouTube Home cards before the final-model API evaluation cycle.
+
+### Session 103
+
+- Date: 2026-09-18
+- Goal: specify Telegram Web bidirectional viewport prefetch before any implementation.
+- Completed:
+  - Added `docs/superpowers/specs/2026-09-18-telegram-bidirectional-prefetch-design.md`.
+  - The design scopes scheduling to rendered Telegram `.bubble` roots and retains the canonical OpenAPI batch contract, background coordinator, model selection, overlay behavior, and bounded evidence storage unchanged.
+  - It defines one viewport of prefetch on both sides of the reader: visible bubbles first, then the current scroll direction, then the opposite side; each serialized call contains at most 12 roots.
+  - It explicitly excludes chat-history scans, Telegram API/debugger capture, persistent prediction caching, raw text/HTML retention, and changes to X, YouTube, simulation, or generic pages.
+  - If Telegram's scroll container cannot be resolved, the design requires the existing generic scan plus dynamic-observer fallback so Telegram is never silently unscanned.
+- Verification:
+  - The design was checked against the existing content entrypoint, content scan, dynamic observer tests, shared platform detection, canonical OpenAPI contract, extension architecture, storage model, and prior viewport-scheduler plan.
+- Known risk:
+  - Telegram Web can change its bubble or scroll-container DOM. The planned selector scope and tested generic fallback contain that risk; live Telegram Web remains a required manual check after fixture-based browser verification.
+- Next best step:
+  - Review and approve `docs/superpowers/specs/2026-09-18-telegram-bidirectional-prefetch-design.md`; only then write the implementation plan and begin test-first implementation.
+
+### Session 104
+
+- Date: 2026-09-18
+- Goal: turn the approved Telegram bidirectional reader-prefetch design into a test-first implementation plan.
+- Completed:
+  - Wrote `docs/superpowers/plans/2026-09-18-telegram-bidirectional-prefetch.md` after approval of the design specification.
+  - The plan defines five TDD tasks: scheduler ordering and bounds; dynamic lifecycle cleanup; Telegram-only content lifecycle with generic fallback; loaded-extension two-direction browser proof; and durable architecture, feature, progress, graph, and startup evidence.
+  - It locks `.bubble` scope, one-reader-height two-sided prefetch, visible/directional/opposite ordering, an 8px direction deadband, serialized 12-root scans, and no new HTTP, message, storage, persistence, or raw-text boundary.
+  - Plan self-review corrected the fallback test seam: `canStartTelegramViewportPrefetch()` precisely matches the content-entrypoint branch.
+- Verification:
+  - Cross-checked the plan against `entrypoints/content.ts`, `content-scan.ts`, `dynamic-observer.test.ts`, `content-runtime.test.ts`, shared platform detection, existing loaded-extension fixtures, the canonical OpenAPI document, prior X viewport plan, and the graph query for the content-scanner path.
+- Next best step:
+  - Execute `docs/superpowers/plans/2026-09-18-telegram-bidirectional-prefetch.md` task by task using its required execution workflow.
+
+### Session 105
+
+- Date: 2026-09-18
+- Goal: implement and verify bounded bidirectional prefetch for rendered Telegram Web reader bubbles.
+- Completed:
+  - Added a Telegram-only content-side scheduler for rendered `.bubble` roots. It resolves the shared scrollable reader, admits roots from one reader-height pixel above and below, prioritizes visible roots then the current direction then the opposite side, and serializes the existing scan path in batches of at most 12.
+  - Added lifecycle-safe observer handling: dynamic bubble registration, deduplication, disconnected-root discard, passive direction tracking with an 8px deadband, and cleanup that disconnects both observers and the scroll listener.
+  - Routed only Telegram Web through this scheduler; unresolved-reader and unavailable-`IntersectionObserver` cases retain the existing generic initial scan and dynamic observer.
+  - Added the HTTPS loaded-extension fixture and screenshot `docs/extension/screenshots/ext-021-telegram-bidirectional-prefetch.png`, proving the positive bubbles above and below the reader are annotated before entering it and the clean control bubble remains unchanged.
+  - Updated `docs/extension/frontend-roadmap.md`, `docs/extension/mvp-architecture.md`, and `feature_list.json` for EXT-017. Corrected the existing manual-log E2E assertion to the canonical `NON_JUDOL` contract label and made its `Tidak ada` action assertion strict.
+- Verification:
+  - RED/GREEN during implementation: focused scheduler and loaded-extension Telegram regression passed after the scheduler and fixture were completed.
+  - Review found that percentage `rootMargin` uses reader width, not height. Replaced it with a pixel margin derived from `scrollContainer.clientHeight`; the focused scheduler regression now asserts the intended height-based boundary.
+  - `pnpm test:run` passed 180 tests in 24 files; `pnpm compile`, `pnpm build`, and `pnpm check:api` passed.
+  - `pnpm test:e2e` passed 15 loaded-extension scenarios, including Telegram bidirectional prefetch and manual analysis/log persistence.
+  - `graphify update .` completed and refreshed `graphify-out/` with 2,251 nodes and 4,200 edges.
+- Known risk:
+  - Telegram Web may change its `.bubble` or scroll-container DOM. The scheduler falls back to generic scanning when the reader cannot resolve, but manual validation against a live logged-in Telegram Web reader remains required.
+- Next best step:
+  - Reload the unpacked extension and manually validate a real Telegram Web conversation by scrolling in both directions before backend/model evaluation work.
+
+### Session 106
+
+- Date: 2026-09-18
+- Goal: preserve complete rendered Telegram message payloads through the canonical batch prediction route.
+- Completed:
+  - Added Telegram-specific candidate collection for `.translatable-message`: nested text, image `alt` evidence, and line breaks are normalized into one bounded (512-character) `message` item rather than fragmented DOM-node requests.
+  - Preserved each complete message's text-node references for overlay and processed/pending lifecycle tracking.
+  - Kept the generic text-node scanner as the Telegram fallback when a rendered Telegram surface has no `.translatable-message` element, preserving the existing bidirectional `.bubble` fixture/scheduler behavior.
+- Verification:
+  - RED: the content-scan integration regression initially received ten fragmented batch items instead of one complete Telegram message.
+  - GREEN: focused DOM-scanner and content-scan suites passed **19 tests**; overlay coverage passed as part of the earlier focused suite.
+  - `pnpm test:run` passed **182 tests in 24 files**; `pnpm compile`, `pnpm build`, and `pnpm check:api` passed.
+  - `pnpm exec playwright test tests/e2e/telegram-bidirectional-prefetch.spec.ts` passed **1 loaded-extension scenario**, proving the scheduler's non-`.translatable-message` bubble fallback still annotates both positive bubbles before they enter view.
+  - `graphify update .` refreshed `graphify-out/` with **2,255 nodes** and **4,213 edges**.
+- Known risk:
+  - Telegram Web markup can differ between actual messages and fixtures. `.translatable-message` receives message-level batching when present; the existing generic scanner remains the safe fallback until live logged-in Telegram validation.
+- Next best step:
+  - Reload the unpacked extension and manually validate a real Telegram Web message with links, emoji/image alt text, and Unicode obfuscation, then continue the FastAPI/model evaluation path.
+
+
+### Session 107
+
+- Date: 2026-09-18
+- Goal: make the Telegram viewport scheduler scan already-rendered startup bubbles without depending on the browser's initial `IntersectionObserver` delivery.
+- Completed:
+  - Added an opt-in initial bubble queue to the Telegram scheduler. It synchronously admits bubbles within the existing one-reader-height prefetch window, then uses the same priority and serialized batch path as intersection-delivered roots.
+  - Enabled that queue only from the Telegram content entrypoint. Scheduler callers retain their previous event-driven behavior unless they explicitly opt in.
+  - Added a regression proving an initially rendered visible bubble is scanned without an `IntersectionObserver` callback.
+- Verification:
+  - RED: the new scheduler regression received no scan before the initial intersection callback.
+  - GREEN: `pnpm compile` and `pnpm exec vitest run src/dom/dom-scanner.test.ts src/dom/content-scan.test.ts src/dom/overlay.test.ts src/dom/telegram-viewport-scheduler.test.ts` passed **57 tests in 4 files**.
+  - Repository startup verification passed: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File D:/judol_detection/init.ps1`; it completed `uv sync --no-cache` and `uv run --no-cache python main.py`.
+- Known risk:
+  - The loaded-extension Telegram fixture remains unverified after this correction. Earlier E2E evidence is historical only: subsequent runs did not receive any Telegram overlay within the assertion window, so the extension injection/background-message boundary must be traced before using it as final proof. Per direction, no further E2E run was started.
+- Next best step:
+  - Diagnose the loaded-extension Telegram fixture's content-script injection and background response path, then rerun the focused Playwright regression before declaring EXT-017 fully reverified.

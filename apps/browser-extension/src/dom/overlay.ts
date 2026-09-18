@@ -35,17 +35,18 @@ export function applyPredictionOverlays(
     }
 
     const target = resolveOverlayTarget(ref, action);
-    const tweetCensorTarget = isTweetCensorTarget(target, action);
+    const surface = getCensorSurface(target, action);
     if (
-      (tweetCensorTarget &&
+      (surface &&
         (appliedTargets.has(target) || isAlreadyOverlayedTarget(target))) ||
-      (!tweetCensorTarget && isTextNodeAlreadyOverlayed(ref.textNode))
+      (!surface && isTextNodeAlreadyOverlayed(ref.textNode))
     ) {
       continue;
     }
 
-    if (tweetCensorTarget) {
-      applyTweetCensor(target, result, action);
+    if (surface) {
+      applyCardCensor(target, result, action, surface);
+      appliedTargets.add(target);
     } else {
       const wrapper = createDetectionWrapper(result, action);
       appendTextWithUnicodeHighlights(
@@ -56,9 +57,6 @@ export function applyPredictionOverlays(
       wrapper.append(createLabel());
       ref.textNode.replaceWith(wrapper);
     }
-    if (tweetCensorTarget) {
-      appliedTargets.add(target);
-    }
     appliedCount += 1;
   }
 
@@ -66,6 +64,12 @@ export function applyPredictionOverlays(
 }
 
 export type CachedTweetCensor = {
+  id: string;
+  riskLevel: RiskLevel;
+  action: Extract<DetectionAction, 'blur' | 'hide' | 'warn'>;
+};
+
+export type CachedYouTubeVideoCensor = {
   id: string;
   riskLevel: RiskLevel;
   action: Extract<DetectionAction, 'blur' | 'hide' | 'warn'>;
@@ -82,7 +86,22 @@ export function applyCachedTweetCensor(
     return false;
   }
 
-  applyTweetCensor(tweet, result, result.action);
+  applyCardCensor(tweet, result, result.action, 'tweet');
+  return true;
+}
+
+export function applyCachedYouTubeVideoCensor(
+  card: HTMLElement,
+  result: CachedYouTubeVideoCensor,
+): boolean {
+  if (
+    !card.matches('ytd-rich-item-renderer') ||
+    isAlreadyOverlayedTarget(card)
+  ) {
+    return false;
+  }
+
+  applyCardCensor(card, result, result.action, 'youtube');
   return true;
 }
 
@@ -141,6 +160,67 @@ export function ensureJudolLensOverlayStyles(): void {
   top: 8px;
   z-index: 1;
 }
+[data-judollens-youtube-blur] {
+  position: relative;
+}
+.judollens-youtube-overlay {
+  background: rgba(239, 68, 68, 0.12);
+  border-radius: inherit;
+  inset: 0;
+  outline: 1px solid rgba(239, 68, 68, 0.42);
+  pointer-events: none;
+  position: absolute;
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+.judollens-youtube-overlay .judollens-label {
+  bottom: 8px;
+  position: absolute;
+  right: 8px;
+  z-index: 1;
+}
+[data-judollens-youtube-warning] {
+  position: relative;
+}
+.judollens-youtube-warning.judollens-label {
+  margin-left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 1;
+}
+[data-judollens-telegram-blur] {
+  position: relative;
+}
+.judollens-telegram-overlay {
+  background: rgba(239, 68, 68, 0.12);
+  border-radius: inherit;
+  inset: 0;
+  outline: 1px solid rgba(239, 68, 68, 0.42);
+  pointer-events: none;
+  position: absolute;
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+.judollens-telegram-overlay .judollens-label {
+  bottom: 8px;
+  position: absolute;
+  right: 8px;
+  z-index: 1;
+}
+[data-judollens-telegram-warning] {
+  position: relative;
+}
+.judollens-telegram-warning.judollens-label {
+  margin-left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 1;
+}
+
 
 .judollens-warning {
   background: rgba(245, 158, 11, 0.14);
@@ -261,35 +341,53 @@ function resolveOverlayTarget(
   ref: ScanCandidateRef,
   action: DetectionAction,
 ): HTMLElement {
+  const parent = ref.textNode.parentElement!;
+  if (ref.item.context.kind === 'message') {
+    return parent.closest<HTMLElement>('.bubble-content-wrapper') ?? parent;
+  }
+
+  if (action === 'blur' || action === 'warn' || action === 'hide') {
+    const card = parent.closest<HTMLElement>('ytd-rich-item-renderer');
+    if (card) {
+      return card;
+    }
+  }
+
   if (action === 'blur' || action === 'hide') {
-    const tweet = ref.textNode.parentElement?.closest<HTMLElement>(
-      '[data-testid="tweet"]',
-    );
+    const tweet = parent.closest<HTMLElement>('[data-testid="tweet"]');
     if (tweet) {
       return tweet;
     }
   }
 
-  return ref.textNode.parentElement!;
+  return parent;
 }
 
-function isTweetCensorTarget(
+function getCensorSurface(
   target: HTMLElement,
   action: DetectionAction,
-): boolean {
-  return (
-    (action === 'blur' || action === 'hide') &&
-    target.matches('[data-testid="tweet"]')
-  );
+): 'tweet' | 'youtube' | 'telegram' | undefined {
+  if (target.matches('.bubble-content-wrapper')) {
+    return 'telegram';
+  }
+  if (target.matches('ytd-rich-item-renderer')) {
+    return 'youtube';
+  }
+  if (target.matches('[data-testid="tweet"]') && action !== 'warn') {
+    return 'tweet';
+  }
+  return undefined;
 }
 
-function applyTweetCensor(
+
+function applyCardCensor(
   target: HTMLElement,
   result: Pick<PredictionResult, 'id' | 'riskLevel'>,
   action: DetectionAction,
+  surface: 'tweet' | 'youtube' | 'telegram',
 ): void {
   if (action === 'hide') {
-    target.setAttribute('data-judollens-tweet-hide', result.id);
+    target.setAttribute(`data-judollens-${surface}-hide`, result.id);
     target.remove();
     return;
   }
@@ -297,8 +395,8 @@ function applyTweetCensor(
   if (action === 'warn') {
     ensureJudolLensOverlayStyles();
     const badge = createLabel();
-    badge.classList.add('judollens-tweet-warning');
-    target.setAttribute('data-judollens-tweet-warning', 'true');
+    badge.classList.add(`judollens-${surface}-warning`);
+    target.setAttribute(`data-judollens-${surface}-warning`, 'true');
     badge.setAttribute(OVERLAY_ATTRIBUTE, result.id);
     badge.setAttribute('data-judollens-risk', result.riskLevel);
     target.append(badge);
@@ -314,9 +412,9 @@ function applyTweetCensor(
   overlay.classList.add(
     'judollens-detected',
     'judollens-blur',
-    'judollens-tweet-overlay',
+    `judollens-${surface}-overlay`,
   );
-  target.setAttribute('data-judollens-tweet-blur', 'true');
+  target.setAttribute(`data-judollens-${surface}-blur`, 'true');
   overlay.setAttribute(OVERLAY_ATTRIBUTE, result.id);
   overlay.setAttribute('data-judollens-risk', result.riskLevel);
   overlay.append(createLabel());

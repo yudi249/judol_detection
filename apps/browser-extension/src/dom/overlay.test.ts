@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { PredictionResult } from '../shared';
 import {
   applyCachedTweetCensor,
+  applyCachedYouTubeVideoCensor,
   applyPredictionOverlays,
   ensureJudolLensOverlayStyles,
 } from './overlay';
@@ -300,6 +301,89 @@ describe('JudolLens page overlay', () => {
     expect(document.querySelectorAll('.judollens-label')).toHaveLength(1);
   });
 
+  it('blurs an entire YouTube video card when generic scanning detects its title', () => {
+    document.body.innerHTML = `
+      <ytd-rich-item-renderer>
+        <a href="/watch?v=NHiWdNf9aUg"><img alt="Thumbnail" /></a>
+        <div id="content"><h3><a href="/watch?v=NHiWdNf9aUg"><span>slot gacor hari ini</span></a></h3></div>
+      </ytd-rich-item-renderer>
+    `;
+    const card = document.querySelector<HTMLElement>('ytd-rich-item-renderer');
+    const textNode = card?.querySelector('h3 span')?.firstChild;
+    if (!card || !(textNode instanceof Text)) {
+      throw new Error('Missing YouTube card title fixture');
+    }
+
+    const applied = applyPredictionOverlays(
+      [createResult()],
+      [{ item: { id: 'candidate-1', text: textNode.data, context: { kind: 'post', visible: true } }, textNode }],
+    );
+
+    expect(applied).toBe(1);
+    expect(card.getAttribute('data-judollens-youtube-blur')).toBe('true');
+    expect(card.querySelector(':scope > .judollens-youtube-overlay')).not.toBeNull();
+    expect(card.querySelector('.judollens-content')).toBeNull();
+  });
+  it.each([
+    ['warn', 'data-judollens-youtube-warning', '.judollens-youtube-warning'],
+    ['hide', 'data-judollens-youtube-hide', null],
+  ] as const)('applies generic YouTube %s to the entire video card', (action, attribute, selector) => {
+    document.body.innerHTML = `
+      <ytd-rich-item-renderer>
+        <a href="/watch?v=NHiWdNf9aUg"><img alt="Thumbnail" /></a>
+        <div id="content"><h3><a href="/watch?v=NHiWdNf9aUg"><span>slot gacor hari ini</span></a></h3></div>
+      </ytd-rich-item-renderer>
+    `;
+    const card = document.querySelector<HTMLElement>('ytd-rich-item-renderer');
+    const textNode = card?.querySelector('h3 span')?.firstChild;
+    if (!card || !(textNode instanceof Text)) {
+      throw new Error('Missing YouTube card title fixture');
+    }
+
+    applyPredictionOverlays(
+      [createResult({ action })],
+      [{ item: { id: 'candidate-1', text: textNode.data, context: { kind: 'post', visible: true } }, textNode }],
+    );
+
+    expect(card.getAttribute(attribute)).toBe(action === 'hide' ? 'candidate-1' : 'true');
+    if (selector) {
+      expect(card.querySelector(`:scope > ${selector}`)).not.toBeNull();
+    }
+    expect(card.isConnected).toBe(action !== 'hide');
+    expect(card.querySelector('.judollens-content')).toBeNull();
+  });
+
+  it.each([
+    ['blur', 'data-judollens-telegram-blur', '.judollens-telegram-overlay'],
+    ['warn', 'data-judollens-telegram-warning', '.judollens-telegram-warning'],
+    ['hide', 'data-judollens-telegram-hide', null],
+  ] as const)('applies Telegram %s to the bubble content wrapper', (action, attribute, selector) => {
+    document.body.innerHTML = `
+      <article class="bubble">
+        <div class="bubble-content-wrapper">
+          <span class="translatable-message">bonus slot gacor malam ini</span>
+        </div>
+      </article>
+    `;
+    const wrapper = document.querySelector<HTMLElement>('.bubble-content-wrapper');
+    const textNode = wrapper?.querySelector('.translatable-message')?.firstChild;
+    if (!wrapper || !(textNode instanceof Text)) {
+      throw new Error('Missing Telegram message fixture');
+    }
+
+    const applied = applyPredictionOverlays(
+      [createResult({ action })],
+      [{ item: { id: 'candidate-1', text: textNode.data, context: { kind: 'message', visible: true } }, textNode }],
+    );
+
+    expect(applied).toBe(1);
+    expect(wrapper.getAttribute(attribute)).toBe(action === 'hide' ? 'candidate-1' : 'true');
+    expect(wrapper.isConnected).toBe(action !== 'hide');
+    if (selector) {
+      expect(wrapper.querySelector(`:scope > ${selector}`)).not.toBeNull();
+    }
+    expect(wrapper.querySelector('.judollens-content')).toBeNull();
+  });
   it('applies one final cached blur to an X tweet', () => {
     document.body.innerHTML = '<article data-testid="tweet"><p>bonus slot gacor</p></article>';
     const tweet = document.querySelector<HTMLElement>('[data-testid="tweet"]');
@@ -312,6 +396,20 @@ describe('JudolLens page overlay', () => {
     expect(applyCachedTweetCensor(tweet, result)).toBe(false);
     expect(tweet.querySelectorAll(':scope > .judollens-tweet-overlay')).toHaveLength(1);
     expect(tweet.getAttribute('data-judollens-tweet-blur')).toBe('true');
+  });
+
+  it('applies one final cached blur to a YouTube Home card', () => {
+    document.body.innerHTML = '<ytd-rich-item-renderer><p>bonus slot gacor</p></ytd-rich-item-renderer>';
+    const card = document.querySelector<HTMLElement>('ytd-rich-item-renderer');
+    if (!card) {
+      throw new Error('Missing YouTube card fixture');
+    }
+
+    const result = { id: 'video-1', riskLevel: 'high' as const, action: 'blur' as const };
+    expect(applyCachedYouTubeVideoCensor(card, result)).toBe(true);
+    expect(applyCachedYouTubeVideoCensor(card, result)).toBe(false);
+    expect(card.querySelectorAll(':scope > .judollens-youtube-overlay')).toHaveLength(1);
+    expect(card.getAttribute('data-judollens-youtube-blur')).toBe('true');
   });
 
  it('censors independent direct text nodes in one non-X parent', () => {

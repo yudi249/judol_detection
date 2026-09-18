@@ -55,7 +55,7 @@ test.describe('JudolLens manual analysis page', () => {
         logsPage.getByRole('heading', { name: 'Log JudolLens' }),
       ).toBeVisible();
       await expect(logsPage.locator('tbody tr')).toHaveCount(2);
-      await expect(logsPage.getByText('BUKAN JUDOL')).toBeVisible();
+      await expect(logsPage.getByText('NON_JUDOL')).toBeVisible();
       await expect(
         logsPage.getByRole('cell', {
           name: 'slot waktu praktikum sudah penuh',
@@ -66,7 +66,7 @@ test.describe('JudolLens manual analysis page', () => {
         .getByRole('textbox', { name: 'Cari log' })
         .fill('praktikum');
       await expect(logsPage.locator('tbody tr')).toHaveCount(1);
-      await expect(logsPage.getByText('Tidak ada')).toBeVisible();
+      await expect(logsPage.getByRole('cell', { name: 'Tidak ada' })).toBeVisible();
     } finally {
       await context.close();
     }

@@ -226,6 +226,104 @@ describe('content scan integration flow', () => {
     expect(document.querySelectorAll('.judollens-detected')).toHaveLength(2);
   });
 
+  it('sends each Telegram translatable message as one complete batch item', async () => {
+    document.body.innerHTML = `
+      <div class="bubble">
+        <span class="translatable-message">
+          <img alt="💥" />
+          <a href="https://mampir.fit/cuanmewah"><strong>NAGAPOKER</strong></a>
+          – Tempatnya Cuan Gila-Gilaan!<br />
+          Mau taruhan bola yang seru? Saatnya gabung bareng
+          <a href="https://mampir.fit/cuanmewah"><strong>NAGAPOKER</strong></a>!
+          <br />🌐 Link Gacor
+          <a href="https://mampir.fit/cuanmewah">https://mampir.fit/cuanmewah</a>
+          <br />🎉 Bonus New Member<br />💰 Bonus Deposit Harian<br />
+          Minimal deposit 10.000<br />
+          Klik sekarang &amp; buktikan sendiri, di sini setiap taruhan bisa jadi jackpot!
+          Jangan cuma nonton, jadi pemenangnya! WD berapapun di bayar lunas!!
+        </span>
+      </div>
+    `;
+    const sentBatches: ScanBatchMessage[] = [];
+
+    await runJudolLensScanOnce({
+      root: document.body,
+      url: 'https://web.telegram.org/k/',
+      sendMessage: async (message) => {
+        if (message.type === MESSAGE_TYPES.getExtensionState) {
+          return createStateResponse();
+        }
+        sentBatches.push(message);
+        return createResponse(message.payload.requestId, []);
+      },
+    });
+
+    expect(sentBatches).toHaveLength(1);
+    expect(sentBatches[0].payload.items).toEqual([
+      expect.objectContaining({
+        text:
+          '💥 NAGAPOKER – Tempatnya Cuan Gila-Gilaan! Mau taruhan bola yang seru? Saatnya gabung bareng NAGAPOKER! 🌐 Link Gacor https://mampir.fit/cuanmewah 🎉 Bonus New Member 💰 Bonus Deposit Harian Minimal deposit 10.000 Klik sekarang & buktikan sendiri, di sini setiap taruhan bisa jadi jackpot! Jangan cuma nonton, jadi pemenangnya! WD berapapun di bayar lunas!!',
+        context: {
+          kind: 'message',
+          selectorHint: '.translatable-message',
+          visible: true,
+          languageHint: 'id',
+        },
+      }),
+    ]);
+  });
+
+  it('sends only Telegram translatable messages, excluding page metadata', async () => {
+    document.body.innerHTML = `
+      <aside class="bubble"><span>𝗣𝗘𝗠𝗨𝗔𝗦 𝗕𝗜𝗥𝗔𝗛𝗜</span><span>17 030 subscribers</span></aside>
+      <article class="bubble">
+        <div class="bubble-content-wrapper">
+          <span class="translatable-message">Deposit 10k untuk slot gacor sekarang.</span>
+        </div>
+      </article>
+    `;
+    const sentBatches: ScanBatchMessage[] = [];
+
+    await runJudolLensScanForRoots({
+      roots: [...document.querySelectorAll('.bubble')],
+      url: 'https://web.telegram.org/k/',
+      sendMessage: async (message) => {
+        if (message.type === MESSAGE_TYPES.getExtensionState) {
+          return createStateResponse();
+        }
+        sentBatches.push(message);
+        return createResponse(message.payload.requestId, []);
+      },
+    });
+
+    expect(sentBatches).toHaveLength(1);
+    expect(sentBatches[0].payload.items).toEqual([
+      expect.objectContaining({
+        text: 'Deposit 10k untuk slot gacor sekarang.',
+        context: expect.objectContaining({
+          kind: 'message',
+          selectorHint: '.translatable-message',
+        }),
+      }),
+    ]);
+  });
+
+  it('does not send an invalid empty Telegram batch without a translatable message', async () => {
+    document.body.innerHTML = '<aside class="bubble"><span>Loading...</span></aside>';
+    const sentTypes: string[] = [];
+
+    await runJudolLensScanOnce({
+      root: document.body,
+      url: 'https://web.telegram.org/k/',
+      sendMessage: async (message) => {
+        sentTypes.push(message.type);
+        return createStateResponse();
+      },
+    });
+
+    expect(sentTypes).toEqual([MESSAGE_TYPES.getExtensionState]);
+  });
+
   it('skips automatic scan when master protection is disabled', async () => {
     document.body.innerHTML =
       '<main><p>bonus slot gacor malam ini</p></main>';
