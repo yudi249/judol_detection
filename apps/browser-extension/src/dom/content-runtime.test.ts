@@ -8,7 +8,11 @@ vi.mock('@/dom', () => ({}));
 vi.mock('@/shared', () => ({}));
 vi.mock('wxt/browser', () => ({ browser: {} }));
 
-import { getYouTubePageModeTransition, isYouTubeHomeUrl } from '../../entrypoints/content';
+import {
+  getYouTubePageModeTransition,
+  isYouTubeHomeUrl,
+  waitForContentAnimationFrame,
+} from '../../entrypoints/content';
 import { registerRuntimeMessageListenerSafely, sendRuntimeMessageSafely } from './content-runtime';
 
 describe('YouTube Home URL routing', () => {
@@ -40,6 +44,23 @@ describe('YouTube Home URL routing', () => {
         'https://www.youtube.com/results?search_query=judol',
       ),
     ).toBeNull();
+  });
+});
+
+describe('content timing', () => {
+  it('waits for exactly one animation frame callback', async () => {
+    let callback: FrameRequestCallback | undefined;
+    const requestFrame = vi.fn((next: FrameRequestCallback) => {
+      callback = next;
+      return 1;
+    });
+    const frame = waitForContentAnimationFrame(requestFrame);
+
+    expect(requestFrame).toHaveBeenCalledTimes(1);
+    expect(callback).toBeDefined();
+    callback?.(16);
+    await expect(frame).resolves.toBeUndefined();
+    expect(requestFrame).toHaveBeenCalledTimes(1);
   });
 });
 describe('content runtime messaging', () => {

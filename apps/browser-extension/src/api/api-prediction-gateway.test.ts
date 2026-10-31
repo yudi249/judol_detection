@@ -40,6 +40,28 @@ function successfulResponse(request: PredictionBatchRequest): PredictionBatchRes
   };
 }
 
+type RecordedSpan = {
+  name: string;
+  attributes: Record<string, unknown>;
+};
+
+function createRecordingTelemetry() {
+  const spans: RecordedSpan[] = [];
+  return {
+    spans,
+    telemetry: {
+      withSpan: async <T>(
+        name: string,
+        attributes: Record<string, unknown>,
+        operation: () => Promise<T>,
+      ): Promise<T> => {
+        spans.push({ name, attributes });
+        return operation();
+      },
+    },
+  };
+}
+
 describe('API prediction gateway', () => {
   it('serializes 19 items as ordered four-item API requests and preserves source result order', async () => {
     const activeCalls: number[] = [];
@@ -74,6 +96,69 @@ describe('API prediction gateway', () => {
       unicodeSuspiciousCount: 0,
       processingTimeMs: 19,
     });
+  });
+
+  it('traces serialized queue wait, chunks, and attempts without request content', async () => {
+    const recording = createRecordingTelemetry();
+    let now = 100;
+    const predictBatch = vi.fn(async (request: PredictionBatchRequest) => {
+      now += 5;
+      return successfulResponse(request);
+    });
+    const gateway = new ApiPredictionGateway({
+      predictBatch,
+      telemetry: recording.telemetry,
+      now: () => now,
+    });
+
+    await gateway.predictBatch(requestWithItems(9));
+
+    expect(recording.spans.filter(({ name }) => name === 'client.gateway_queue')).toEqual([
+      expect.objectContaining({ attributes: expect.objectContaining({ 'judollens.queue_wait_ms': 0 }) }),
+      expect.objectContaining({ attributes: expect.objectContaining({ 'judollens.queue_wait_ms': 5 }) }),
+      expect.objectContaining({ attributes: expect.objectContaining({ 'judollens.queue_wait_ms': 10 }) }),
+    ]);
+    expect(
+      recording.spans
+        .filter(({ name }) => name === 'client.api_chunk')
+        .map(({ attributes }) => attributes['judollens.chunk.index']),
+    ).toEqual([0, 1, 2]);
+    expect(recording.spans.filter(({ name }) => name === 'client.http_attempt')).toHaveLength(3);
+    expect(JSON.stringify(recording.spans)).not.toContain('text 0');
+  });
+
+  it('traces retry indexes with stable original and chunk request IDs', async () => {
+    const recording = createRecordingTelemetry();
+    const original = requestWithItems(1);
+    const predictBatch = vi
+      .fn<(...args: [PredictionBatchRequest]) => Promise<PredictionBatchResponse>>()
+      .mockRejectedValueOnce(new ApiError('private failure detail', 503, 'model_unavailable'))
+      .mockResolvedValueOnce(successfulResponse({ ...original, requestId: 'request-1:chunk:0' }));
+    const gateway = new ApiPredictionGateway({
+      predictBatch,
+      sleep: vi.fn().mockResolvedValue(undefined),
+      telemetry: recording.telemetry,
+    });
+
+    await gateway.predictBatch(original);
+
+    expect(
+      recording.spans
+        .filter(({ name }) => name === 'client.http_attempt')
+        .map(({ attributes }) => attributes),
+    ).toEqual([
+      expect.objectContaining({
+        'judollens.request_id': 'request-1',
+        'judollens.chunk_request_id': 'request-1:chunk:0',
+        'judollens.retry.index': 0,
+      }),
+      expect.objectContaining({
+        'judollens.request_id': 'request-1',
+        'judollens.chunk_request_id': 'request-1:chunk:0',
+        'judollens.retry.index': 1,
+      }),
+    ]);
+    expect(JSON.stringify(recording.spans)).not.toContain('private failure detail');
   });
 
   it('retries only 429 and 503 with the exact injected delay schedule', async () => {

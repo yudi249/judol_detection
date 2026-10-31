@@ -19,6 +19,19 @@ export const STORAGE_KEYS = {
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
 
 export type SettingsPredictionMode = Extract<PredictionMode, 'mock' | 'api'>;
+export type BenchmarkTelemetrySettings = {
+  enabled: boolean;
+  otlpEndpoint: string;
+  runId: string;
+};
+
+export type BenchmarkTelemetrySettingsPatch =
+  Partial<BenchmarkTelemetrySettings>;
+
+export type ExtensionSettingsPatch = Omit<Partial<ExtensionSettings>, 'benchmarkTelemetry'> & {
+  benchmarkTelemetry?: BenchmarkTelemetrySettingsPatch;
+};
+
 
 export type ExtensionSettings = {
   schemaVersion: 1;
@@ -33,6 +46,7 @@ export type ExtensionSettings = {
   maxLogs: number;
   storeBoundedEvidence: boolean;
   storeSourceUrl: boolean;
+  benchmarkTelemetry: BenchmarkTelemetrySettings;
 };
 
 export const defaultExtensionSettings: ExtensionSettings = {
@@ -54,6 +68,11 @@ export const defaultExtensionSettings: ExtensionSettings = {
   maxLogs: 200,
   storeBoundedEvidence: true,
   storeSourceUrl: false,
+  benchmarkTelemetry: {
+    enabled: false,
+    otlpEndpoint: 'http://127.0.0.1:4318/v1/traces',
+    runId: '',
+  },
 };
 
 export type SessionStats = {

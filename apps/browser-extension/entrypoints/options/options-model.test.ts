@@ -24,7 +24,7 @@ describe('options model', () => {
       },
     };
 
-    const model = buildOptionsViewModel(settings, createStats());
+    const model = buildOptionsViewModel(settings, createStats(), 'disabled');
 
     expect(model.detectionMode.predictionMode).toBe('api');
     expect(model.detectionMode.thresholdPercent).toBe(82);
@@ -42,6 +42,13 @@ describe('options model', () => {
       currentModeLabel: 'Mode API',
       lastErrorLabel: 'Tidak ada galat terbaru',
     });
+    expect(model.benchmarkTelemetry).toEqual({
+      enabled: false,
+      otlpEndpoint: 'http://127.0.0.1:4318/v1/traces',
+      runId: '',
+      statusLabel: 'Telemetry benchmark nonaktif',
+    });
+
   });
 
   it('creates bounded settings patches for numeric controls', () => {
@@ -53,8 +60,54 @@ describe('options model', () => {
     expect(createMaxLogsPatch('1200')).toEqual({ maxLogs: 1000 });
   });
 
-  it('builds a reset patch from default settings', () => {
-    expect(buildResetSettingsPatch()).toEqual(defaultExtensionSettings);
+  it('builds a reset patch with telemetry disabled and fresh nested values', () => {
+    const reset = buildResetSettingsPatch();
+
+    expect(reset).toEqual(defaultExtensionSettings);
+    expect(reset.benchmarkTelemetry.enabled).toBe(false);
+    expect(reset.benchmarkTelemetry).not.toBe(
+      defaultExtensionSettings.benchmarkTelemetry,
+    );
+  });
+
+  it('describes active benchmark telemetry in Indonesian', () => {
+    const model = buildOptionsViewModel(
+      {
+        ...defaultExtensionSettings,
+        benchmarkTelemetry: {
+          enabled: true,
+          otlpEndpoint: 'http://localhost:4318/v1/traces',
+          runId: 'benchmark-test',
+        },
+      },
+      createStats(),
+      'ready',
+    );
+
+    expect(model.benchmarkTelemetry).toEqual({
+      enabled: true,
+      otlpEndpoint: 'http://localhost:4318/v1/traces',
+      runId: 'benchmark-test',
+      statusLabel: 'Telemetry benchmark siap',
+    });
+  });
+
+  it('describes exporter failure in Indonesian', () => {
+    const model = buildOptionsViewModel(
+      {
+        ...defaultExtensionSettings,
+        benchmarkTelemetry: {
+          ...defaultExtensionSettings.benchmarkTelemetry,
+          enabled: true,
+        },
+      },
+      createStats(),
+      'export-failed',
+    );
+
+    expect(model.benchmarkTelemetry.statusLabel).toBe(
+      'Ekspor telemetry benchmark gagal',
+    );
   });
 });
 

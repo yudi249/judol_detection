@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 _CANONICAL_MAX_BATCH_ITEMS = 32
 _CANONICAL_MAX_ITEM_CHARACTERS = 512
@@ -21,6 +22,8 @@ class ApiSettings:
     max_batch_items: int = _CANONICAL_MAX_BATCH_ITEMS
     max_item_characters: int = _CANONICAL_MAX_ITEM_CHARACTERS
     max_inference_queue: int = 1
+    telemetry_enabled: bool = False
+    otlp_endpoint: str = "http://127.0.0.1:4318/v1/traces"
 
     def __post_init__(self) -> None:
         if self.host not in {"127.0.0.1", "::1", "localhost"}:
@@ -39,6 +42,19 @@ class ApiSettings:
             raise ValueError("max_inference_queue must be at least 1")
         if self.inference_runtime not in {"pytorch", "onnx-int8"}:
             raise ValueError("inference_runtime must be 'pytorch' or 'onnx-int8'")
+        endpoint = urlsplit(self.otlp_endpoint)
+        if (
+            endpoint.scheme != "http"
+            or endpoint.hostname not in {"127.0.0.1", "::1", "localhost"}
+            or endpoint.path != "/v1/traces"
+            or endpoint.username is not None
+            or endpoint.password is not None
+            or endpoint.query
+            or endpoint.fragment
+        ):
+            raise ValueError(
+                "OTLP endpoint must be a loopback HTTP URL ending in /v1/traces"
+            )
 
 
 def _optional_int(name: str, default: int) -> int:
@@ -49,6 +65,16 @@ def _optional_int(name: str, default: int) -> int:
         return int(value)
     except ValueError as exc:
         raise ValueError(f"{name} must be an integer") from exc
+
+def _optional_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    if value in {"true", "1"}:
+        return True
+    if value in {"false", "0"}:
+        return False
+    raise ValueError(f"{name} must be true, false, 1, or 0")
 
 
 def load_settings() -> ApiSettings:
@@ -65,4 +91,8 @@ def load_settings() -> ApiSettings:
             "JUDOLLENS_MAX_ITEM_CHARACTERS", _CANONICAL_MAX_ITEM_CHARACTERS
         ),
         max_inference_queue=_optional_int("JUDOLLENS_MAX_INFERENCE_QUEUE", 1),
+        telemetry_enabled=_optional_bool("JUDOLLENS_TELEMETRY_ENABLED", False),
+        otlp_endpoint=os.getenv(
+            "JUDOLLENS_OTLP_ENDPOINT", "http://127.0.0.1:4318/v1/traces"
+        ),
     )

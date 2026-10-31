@@ -5,6 +5,7 @@ import {
   type GetExtensionStateMessage,
   type Platform,
   type PredictionResult,
+  type PredictionTraceCompleteMessage,
   type ScanBatchMessage,
   type ScanBatchResponseMessage,
 } from '../shared';
@@ -31,9 +32,12 @@ export type RunJudolLensScanOptions = {
   pageTitle?: string;
   processedNodes?: WeakSet<Node>;
   sendMessage: (
-    message: ScanBatchMessage | GetExtensionStateMessage,
+    message: ScanBatchMessage | GetExtensionStateMessage | PredictionTraceCompleteMessage,
   ) => Promise<unknown>;
   onPredictionResults?: (completed: CompletedPrediction[]) => void;
+  now?: () => number;
+  epochNow?: () => number;
+  nextAnimationFrame?: () => Promise<void>;
 };
 
 export type RunJudolLensScanForRootsOptions = Omit<
@@ -65,11 +69,15 @@ export async function runJudolLensScanForRoots(
     return 0;
   }
 
+  const now = options.now ?? (() => performance.now());
+  const scanStartedAt = now();
+  const startedAtEpochMs = (options.epochNow ?? (() => Date.now()))();
   const candidateRefs = collectCandidateRefs(
     options.roots,
     options.processedNodes,
     platform === 'telegram',
   );
+  const scanDurationMs = now() - scanStartedAt;
   for (const ref of candidateRefs) {
     for (const textNode of getRefTextNodes(ref)) {
       pendingNodes.add(textNode);
@@ -85,11 +93,25 @@ export async function runJudolLensScanForRoots(
       candidateRefs.map((ref) => ref.item),
       createPageContext(options, state),
     );
+    const telemetry = settings?.benchmarkTelemetry.enabled
+      ? {
+          requestId: request.requestId,
+          startedAtEpochMs,
+          scanDurationMs,
+          candidateCount: candidateRefs.length,
+          totalCharacters: candidateRefs.reduce((total, ref) => total + ref.item.text.length, 0),
+          maxCharacters: candidateRefs.reduce(
+            (maximum, ref) => Math.max(maximum, ref.item.text.length),
+            0,
+          ),
+        }
+      : undefined;
     let response: ScanBatchResponseMessage | undefined;
     try {
-      response = (await options.sendMessage(
-        createScanBatchMessage(request),
-      )) as ScanBatchResponseMessage | undefined;
+      response = (await options.sendMessage({
+        ...createScanBatchMessage(request),
+        telemetry,
+      })) as ScanBatchResponseMessage | undefined;
     } catch (error) {
       if (isExtensionContextInvalidated(error)) {
         return 0;
@@ -116,15 +138,32 @@ export async function runJudolLensScanForRoots(
     });
     options.onPredictionResults?.(completed);
 
+    const overlayStartedAt = now();
     const applied = applyPredictionOverlays(
       response.payload.results,
       candidateRefs,
       overlayOptions,
     );
+    const overlayDurationMs = now() - overlayStartedAt;
     for (const ref of candidateRefs) {
       for (const textNode of getRefTextNodes(ref)) {
         options.processedNodes?.add(textNode);
       }
+    }
+
+    if (telemetry) {
+      const paintStartedAt = now();
+      await (options.nextAnimationFrame ?? waitForNextAnimationFrame)();
+      const completion: PredictionTraceCompleteMessage = {
+        type: MESSAGE_TYPES.predictionTraceComplete,
+        payload: {
+          requestId: request.requestId,
+          overlayDurationMs,
+          nextPaintDurationMs: now() - paintStartedAt,
+          completion: 'complete',
+        },
+      };
+      void options.sendMessage(completion).catch(() => undefined);
     }
     return applied;
   } finally {
@@ -210,4 +249,10 @@ function isExtensionContextInvalidated(error: unknown): boolean {
     error instanceof Error &&
     error.message.toLowerCase().includes('extension context invalidated')
   );
+}
+
+function waitForNextAnimationFrame(): Promise<void> {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  requestAnimationFrame(() => resolve());
+  return promise;
 }

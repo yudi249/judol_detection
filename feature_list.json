@@ -1,6 +1,6 @@
 {
   "project": "judol_detection",
- "last_updated": "2026-09-16",
+  "last_updated": "2026-09-23",
   "rules": {
     "single_active_feature": true,
     "passing_requires_evidence": true,
@@ -814,9 +814,34 @@
         "The generic initial scan plus dynamic-observer lifecycle remains the fallback when the reader cannot be resolved or `IntersectionObserver` is unavailable; no Telegram API capture, contract field, storage key, or prediction cache was added.",
         "`pnpm test:run` passed 180 tests in 24 files; `pnpm compile`, `pnpm build`, and `pnpm check:api` passed. `pnpm test:e2e` passed 15 loaded-extension scenarios.",
         "The Telegram message scanner now sends a rendered `.translatable-message` as one bounded (512-character) batch item, including image alt text and nested-link text. It retains the generic text-node scanner when a Telegram fixture or changed DOM lacks that message selector, so the existing bubble scheduler remains functional. Focused content-scanner and DOM-scanner tests passed 19 tests; the full unit suite passed 182 tests in 24 files; compile, production build, OpenAPI generation check, and the loaded-extension Telegram viewport regression passed historically.",
-        "The scheduler now explicitly queues initially rendered bubbles within the existing one-reader-height prefetch window when the Telegram content entrypoint starts. This closes the initial `IntersectionObserver` callback race without changing scheduler callers that do not opt in. The new regression failed before the correction; `pnpm compile` and the focused DOM scanner/content scan/overlay/scheduler suite passed 57 tests. The focused loaded-extension Telegram regression must still be rerun after tracing its current injection/background-message failure; it is not claimed as verification for this correction."
+        "The scheduler now explicitly queues initially rendered bubbles within the existing one-reader-height prefetch window when the Telegram content entrypoint starts. This closes the initial `IntersectionObserver` callback race without changing scheduler callers that do not opt in. The new regression failed before the correction; `pnpm compile` and the focused DOM scanner/content scan/overlay/scheduler suite passed 57 tests. The focused loaded-extension Telegram regression must still be rerun after tracing its current injection/background-message failure; it is not claimed as verification for this correction.",
+        "Telegram blur and warning overlays each create an isolated stacking context on their existing `.bubble-content-wrapper` target. The pointer-transparent blur surface and top-right warning badge both use `z-index: 2147483647`, preventing Telegram message/media layers from covering them. Regressions with simulated `z-index: 10` content failed before the respective isolation and passed afterward. `pnpm exec vitest run src/dom/overlay.test.ts` passed 23 tests; `pnpm compile`, `pnpm build`, and focused `git diff --check` passed. The loaded-extension fixture timeout is a separate injection/background-message boundary and is not claimed as evidence for either paint-order correction."
       ],
-      "notes": "The selector boundary is rendered Telegram `.bubble` elements and the resolved scroll container may change with Telegram Web DOM updates. The scheduler ignores disconnected queued roots, stops observers on lifecycle cleanup, keeps all scheduling state ephemeral, and explicitly queues startup-window bubbles from the Telegram content entrypoint. Live logged-in Telegram validation and a fresh loaded-extension fixture pass remain required."
+      "notes": "The selector boundary is rendered Telegram `.bubble` elements and the resolved scroll container may change with Telegram Web DOM updates. The scheduler ignores disconnected queued roots, stops observers on lifecycle cleanup, keeps all scheduling state ephemeral, and explicitly queues startup-window bubbles from the Telegram content entrypoint. Telegram blur and warning overlays now create an isolated local stacking context and use foreground layers above Telegram's message/media layers. Live logged-in Telegram validation and a fresh loaded-extension fixture pass remain required; the latter is currently blocked by an injection/background-message boundary that produces no overlay attributes."
+    },
+    {
+      "id": "OBS-001",
+      "priority": 1,
+      "area": "performance-observability",
+      "title": "Trace realtime prediction latency across client and server",
+      "user_visible_behavior": "Researcher can opt into privacy-safe distributed prediction traces, inspect client and server latency stages in a persistent local Jaeger instance, and keep normal prediction behavior unchanged when telemetry is disabled or unavailable.",
+      "status": "in_progress",
+      "verification": [
+        "Run focused extension telemetry, storage, options, API-client, gateway, coordinator, and content timing tests.",
+        "Run focused FastAPI telemetry, contract, and inference tests for PyTorch and ONNX.",
+        "Run extension test, compile, build, and OpenAPI generation checks plus the full Python suite.",
+        "Run a real native Jaeger, ONNX FastAPI, and loaded-extension distributed trace smoke scenario.",
+        "Restart Jaeger to prove Badger persistence and inspect span attributes for privacy.",
+        "Run the repository startup verification and graphify update."
+      ],
+      "evidence": [
+        "Focused extension telemetry, storage/options, content timing, API client, coordinator, gateway, and exporter-status suites passed; the integrated client tracing suite passed 73 tests, the full extension suite passed 225 tests in 26 files, and compile/build/OpenAPI drift checks passed.",
+        "Focused FastAPI telemetry, CORS propagation, contract, and PyTorch/ONNX inference suites passed 40 tests; the full Python suite passed 233 tests with six upstream deprecation/tracing warnings, and compileall plus `init.ps1` passed.",
+        "The Jaeger v2 YAML parses with repository PyYAML and binds health/query/OTLP listeners only to 127.0.0.1; Badger is non-ephemeral with 720h retention. Runtime validation is unavailable because `observability/jaeger/jaeger.exe` is not installed.",
+        "A real ONNX FastAPI process accepted a W3C traceparent plus `judollens.run_id=benchmark-smoke`, returned HTTP 200 for `benchmark-smoke-request`, and remained functional while OTLP export to absent 127.0.0.1:4318 failed. No real Jaeger trace ID, persistence restart, loaded-extension telemetry trace, or Jaeger privacy query is claimed.",
+        "Final `graphify update .` refreshed the code graph to 2,349 nodes, 4,428 edges, and 160 communities."
+      ],
+      "notes": "Telemetry is opt-in, loopback-only, and must not capture candidate text, snippets, URLs, page titles, selectors, DOM, request or response bodies, platform payloads, credentials, or arbitrary exception messages. OBS-001 remains in progress until a native Jaeger binary is installed and the real loaded-extension distributed trace, persistence restart, opt-out, topology, and privacy inspections pass."
     }
   ]
 }

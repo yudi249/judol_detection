@@ -84,6 +84,38 @@ function createBatchRequest(): PredictionBatchRequest {
   };
 }
 
+function createRecordingCoordinatorTelemetry() {
+  const spans: string[] = [];
+  const startPrediction = vi.fn(() => ({
+    withSpan: async <T>(
+      name: string,
+      _attributes: Record<string, unknown>,
+      operation: () => Promise<T>,
+    ): Promise<T> => {
+      spans.push(name);
+      return operation();
+    },
+  }));
+  const completePrediction = vi.fn();
+  return {
+    spans,
+    startPrediction,
+    completePrediction,
+    telemetry: {
+      startPrediction,
+      completePrediction,
+      withSpan: async <T>(
+        name: string,
+        _attributes: Record<string, unknown>,
+        operation: () => Promise<T>,
+      ): Promise<T> => {
+        spans.push(name);
+        return operation();
+      },
+    },
+  };
+}
+
 describe('background prediction coordinator', () => {
   let area: MemoryStorageArea;
 
@@ -150,6 +182,99 @@ describe('background prediction coordinator', () => {
       }),
     );
     expect(logs[0]).not.toHaveProperty('sourceUrl');
+  });
+
+  it('traces one scan root, background prediction, storage writes, and matching completion', async () => {
+    const recording = createRecordingCoordinatorTelemetry();
+    const request = createBatchRequest();
+    const telemetryStart = {
+      requestId: request.requestId,
+      startedAtEpochMs: 100,
+      scanDurationMs: 4,
+      candidateCount: 2,
+      totalCharacters: 75,
+      maxCharacters: 39,
+    };
+
+    const response = await handleJudolLensMessage(
+      { type: MESSAGE_TYPES.scanBatch, payload: request, telemetry: telemetryStart },
+      { storageArea: area, telemetry: recording.telemetry },
+    );
+    await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.predictionTraceComplete,
+        payload: {
+          requestId: request.requestId,
+          overlayDurationMs: 3,
+          nextPaintDurationMs: 8,
+          completion: 'complete',
+        },
+      },
+      { telemetry: recording.telemetry },
+    );
+
+    expect(response?.type).toBe(MESSAGE_TYPES.scanBatch);
+    expect(recording.startPrediction).toHaveBeenCalledOnce();
+    expect(recording.startPrediction).toHaveBeenCalledWith(telemetryStart);
+    expect(recording.spans).toEqual([
+      'client.background_prediction',
+      'client.storage_update',
+    ]);
+    expect(recording.completePrediction).toHaveBeenCalledWith(
+      expect.objectContaining({ requestId: request.requestId }),
+    );
+  });
+
+  it('keeps prediction behavior unchanged when telemetry throws', async () => {
+    const request = createBatchRequest();
+    const baseline = (await handleJudolLensMessage(
+      { type: MESSAGE_TYPES.scanBatch, payload: request },
+      { storageArea: area },
+    )) as ScanBatchResponseMessage;
+    const secondArea = new MemoryStorageArea();
+    await secondArea.setItem(STORAGE_KEYS.settings, defaultExtensionSettings);
+    const throwingTelemetry = {
+      startPrediction: () => {
+        throw new Error('telemetry unavailable');
+      },
+      completePrediction: () => {
+        throw new Error('telemetry unavailable');
+      },
+      withSpan: async () => {
+        throw new Error('telemetry unavailable');
+      },
+    };
+
+    const traced = (await handleJudolLensMessage(
+      {
+        type: MESSAGE_TYPES.scanBatch,
+        payload: request,
+        telemetry: {
+          requestId: request.requestId,
+          startedAtEpochMs: 100,
+          scanDurationMs: 4,
+          candidateCount: 2,
+          totalCharacters: 75,
+          maxCharacters: 39,
+        },
+      },
+      { storageArea: secondArea, telemetry: throwingTelemetry },
+    )) as ScanBatchResponseMessage;
+
+    expect(traced).toEqual({
+      ...baseline,
+      payload: {
+        ...baseline?.payload,
+        summary: {
+          ...baseline?.payload.summary,
+          processingTimeMs: traced?.payload.summary.processingTimeMs,
+        },
+      },
+    });
+    expect(secondArea.peek(STORAGE_KEYS.sessionStats)).toMatchObject({
+      protectionStatus: 'active',
+      scannedCount: 2,
+    });
   });
 
   it('does not invoke the predictor or persist scan state while master protection is disabled', async () => {

@@ -30,6 +30,16 @@ import {
   updateSessionStats,
   type StorageArea,
 } from '../storage';
+import type {
+  BackgroundTelemetry,
+  PredictionTraceStart,
+  TraceHandle,
+} from '../telemetry/background-telemetry';
+
+export type CoordinatorTelemetry = Pick<
+  BackgroundTelemetry,
+  'startPrediction' | 'completePrediction' | 'withSpan'
+>;
 
 type OpenManualAnalysis = (input: ManualAnalysisSelectionInput) => Promise<void>;
 
@@ -38,6 +48,7 @@ export type BackgroundCoordinatorDependencies = {
   mockPredictBatch?: PredictBatch;
   apiPredictBatch?: PredictBatch;
   openManualAnalysis?: OpenManualAnalysis;
+  telemetry?: CoordinatorTelemetry;
 };
 
 export async function handleJudolLensMessage(
@@ -46,7 +57,14 @@ export async function handleJudolLensMessage(
 ): Promise<JudolLensResponseMessage | undefined> {
   switch (message.type) {
     case MESSAGE_TYPES.scanBatch:
-      return handleScanBatch(message.payload, dependencies);
+      return handleTracedScanBatch(message.payload, message.telemetry, dependencies);
+    case MESSAGE_TYPES.predictionTraceComplete:
+      try {
+        dependencies.telemetry?.completePrediction(message.payload);
+      } catch {
+        // Telemetry must never affect message handling.
+      }
+      return undefined;
     case MESSAGE_TYPES.getExtensionState:
       return getExtensionState(dependencies.storageArea);
     case MESSAGE_TYPES.updateSettings:
@@ -173,6 +191,60 @@ async function handleYouTubeBrowseItems(
     },
   };
 }
+async function handleTracedScanBatch(
+  request: PredictionBatchRequest,
+  traceStart: PredictionTraceStart | undefined,
+  dependencies: BackgroundCoordinatorDependencies,
+): Promise<ScanBatchResponseMessage> {
+  let traceHandle: TraceHandle | undefined;
+  if (traceStart !== undefined) {
+    try {
+      traceHandle = dependencies.telemetry?.startPrediction(traceStart);
+    } catch {
+      traceHandle = undefined;
+    }
+  }
+
+  const operation = () => handleScanBatch(request, dependencies);
+  if (traceHandle === undefined) {
+    return operation();
+  }
+  return runTelemetrySpan(
+    traceHandle,
+    'client.background_prediction',
+    { 'judollens.request_id': request.requestId },
+    operation,
+  );
+}
+type SpanPort = {
+  withSpan<T>(
+    name: string,
+    attributes: Record<string, string | number | boolean>,
+    operation: () => Promise<T>,
+  ): Promise<T>;
+};
+
+function runTelemetrySpan<T>(
+  telemetry: SpanPort,
+  name: string,
+  attributes: Record<string, string | number | boolean>,
+  operation: () => Promise<T>,
+): Promise<T> {
+  let operationPromise: Promise<T> | undefined;
+  const runOperation = () => {
+    operationPromise ??= operation();
+    return operationPromise;
+  };
+  try {
+    return Promise.resolve(telemetry.withSpan(name, attributes, runOperation)).catch(
+      () => operationPromise ?? runOperation(),
+    );
+  } catch {
+    return operationPromise ?? runOperation();
+  }
+}
+
+
 
 async function handleScanBatch(
   request: PredictionBatchRequest,
@@ -215,19 +287,30 @@ async function handleScanBatch(
         payload: response,
       };
     }
-
-    const writes: Array<Promise<unknown>> = [
-      updateStatsFromResponse(effectiveRequest, response, storageArea),
-    ];
-    if (settings.storeBoundedEvidence) {
-      writes.push(
-        appendDetectionLogs(
-          createDetectionLogs(effectiveRequest, response),
-          storageArea,
-        ),
+    const persist = async () => {
+      const writes: Array<Promise<unknown>> = [
+        updateStatsFromResponse(effectiveRequest, response, storageArea),
+      ];
+      if (settings.storeBoundedEvidence) {
+        writes.push(
+          appendDetectionLogs(
+            createDetectionLogs(effectiveRequest, response),
+            storageArea,
+          ),
+        );
+      }
+      await Promise.all(writes);
+    };
+    if (dependencies.telemetry === undefined) {
+      await persist();
+    } else {
+      await runTelemetrySpan(
+        dependencies.telemetry,
+        'client.storage_update',
+        { 'judollens.request_id': request.requestId },
+        persist,
       );
     }
-    await Promise.all(writes);
 
     return {
       type: MESSAGE_TYPES.scanBatch,

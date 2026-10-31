@@ -33,6 +33,13 @@ class MemoryStorageArea implements StorageArea {
   async removeItem(key: string): Promise<void> {
     this.values.delete(key);
   }
+  seed<K extends keyof ExtensionStorageSchema>(
+    key: K,
+    value: ExtensionStorageSchema[K],
+  ): void {
+    this.values.set(key, value);
+  }
+
 
   peek<K extends keyof ExtensionStorageSchema>(
     key: K,
@@ -99,6 +106,53 @@ describe('extension storage service', () => {
     await expect(getExtensionSettings(area)).resolves.toMatchObject({
       protectionEnabled: false,
     });
+  });
+  it('adds disabled benchmark telemetry defaults to old settings', async () => {
+    const area = new MemoryStorageArea();
+    const { benchmarkTelemetry: _, ...oldSettings } = defaultExtensionSettings;
+    area.seed(
+      STORAGE_KEYS.settings,
+      oldSettings as ExtensionStorageSchema[typeof STORAGE_KEYS.settings],
+    );
+
+    const settings = await getExtensionSettings(area);
+
+    expect(settings.benchmarkTelemetry).toEqual({
+      enabled: false,
+      otlpEndpoint: 'http://127.0.0.1:4318/v1/traces',
+      runId: '',
+    });
+  });
+
+  it('deep-merges benchmark telemetry patches and generates a run ID on enable', async () => {
+    const area = new MemoryStorageArea();
+
+    const updated = await updateExtensionSettings(
+      { benchmarkTelemetry: { enabled: true } },
+      area,
+    );
+
+    expect(updated.benchmarkTelemetry).toEqual({
+      enabled: true,
+      otlpEndpoint: 'http://127.0.0.1:4318/v1/traces',
+      runId: expect.stringMatching(/^benchmark-/),
+    });
+  });
+
+  it('rejects an invalid telemetry endpoint without persisting it', async () => {
+    const area = new MemoryStorageArea();
+
+    await expect(
+      updateExtensionSettings(
+        {
+          benchmarkTelemetry: {
+            otlpEndpoint: 'https://collector.example/v1/traces',
+          },
+        },
+        area,
+      ),
+    ).rejects.toThrow('loopback');
+    expect(area.peek(STORAGE_KEYS.settings)).toBeUndefined();
   });
 
   it('creates session stats defaults and omits activeUrl when source URL storage is disabled', async () => {

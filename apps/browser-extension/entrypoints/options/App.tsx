@@ -16,8 +16,10 @@ import {
   defaultExtensionSettings,
   MESSAGE_TYPES,
   type ExtensionSettings,
+  type ExtensionSettingsPatch,
   type ExtensionStateResponseMessage,
   type SessionStats,
+  type TelemetryExporterStatus,
 } from '@/shared';
 import {
   ActivityIcon,
@@ -37,12 +39,16 @@ import {
 type OptionsData = {
   settings: ExtensionSettings;
   stats: SessionStats;
+  telemetryStatus: TelemetryExporterStatus;
 };
 
 function App() {
   const [data, setData] = useState<OptionsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState('Memuat pengaturan');
+  const [telemetryEndpointDraft, setTelemetryEndpointDraft] = useState(
+    defaultExtensionSettings.benchmarkTelemetry.otlpEndpoint,
+  );
 
   useEffect(() => {
     void loadState();
@@ -53,7 +59,7 @@ function App() {
       return null;
     }
 
-    return buildOptionsViewModel(data.settings, data.stats);
+    return buildOptionsViewModel(data.settings, data.stats, data.telemetryStatus);
   }, [data]);
 
   async function loadState() {
@@ -65,12 +71,16 @@ function App() {
     setData({
       settings: response.payload.settings,
       stats: response.payload.stats,
+      telemetryStatus: response.payload.telemetryStatus ?? 'disabled',
     });
+    setTelemetryEndpointDraft(
+      response.payload.settings.benchmarkTelemetry.otlpEndpoint,
+    );
     setStatusMessage('Pengaturan dimuat');
     setIsLoading(false);
   }
 
-  async function patchSettings(patch: Partial<ExtensionSettings>) {
+  async function patchSettings(patch: ExtensionSettingsPatch) {
     const response = (await browser.runtime.sendMessage({
       type: MESSAGE_TYPES.updateSettings,
       payload: patch,
@@ -79,9 +89,49 @@ function App() {
     setData({
       settings: response.payload.settings,
       stats: response.payload.stats,
+      telemetryStatus: response.payload.telemetryStatus ?? 'disabled',
     });
     setStatusMessage('Pengaturan disimpan');
+    return response.payload.settings;
   }
+
+  async function setBenchmarkTelemetryEnabled(enabled: boolean) {
+    try {
+      const settings = await patchSettings({
+        benchmarkTelemetry: { enabled },
+      });
+      setTelemetryEndpointDraft(settings.benchmarkTelemetry.otlpEndpoint);
+      setStatusMessage(
+        enabled
+          ? 'Telemetry benchmark diaktifkan'
+          : 'Telemetry benchmark dinonaktifkan',
+      );
+    } catch (error) {
+      setStatusMessage(formatSettingsError(error));
+    }
+  }
+
+  async function saveTelemetryEndpoint() {
+    try {
+      const settings = await patchSettings({
+        benchmarkTelemetry: { otlpEndpoint: telemetryEndpointDraft },
+      });
+      setTelemetryEndpointDraft(settings.benchmarkTelemetry.otlpEndpoint);
+      setStatusMessage('Endpoint telemetry disimpan');
+    } catch (error) {
+      setStatusMessage(formatSettingsError(error));
+    }
+  }
+  async function resetSettings() {
+    try {
+      const settings = await patchSettings(buildResetSettingsPatch());
+      setTelemetryEndpointDraft(settings.benchmarkTelemetry.otlpEndpoint);
+      setStatusMessage('Pengaturan bawaan dipulihkan');
+    } catch (error) {
+      setStatusMessage(formatSettingsError(error));
+    }
+  }
+
 
   if (isLoading || !data || !model) {
     return (
@@ -109,7 +159,7 @@ function App() {
           <div className="flex items-center gap-2">
             <Badge variant="secondary">{statusMessage}</Badge>
             <Button
-              onClick={() => void patchSettings(buildResetSettingsPatch())}
+              onClick={() => void resetSettings()}
               variant="outline"
             >
               <RotateCcwIcon aria-hidden="true" className="size-4" />
@@ -271,6 +321,46 @@ function App() {
               />
             </Panel>
 
+            <Panel title="Telemetry benchmark" icon={ActivityIcon}>
+              <SwitchRow
+                checked={model.benchmarkTelemetry.enabled}
+                label="Aktifkan telemetry benchmark"
+                onCheckedChange={(checked) =>
+                  void setBenchmarkTelemetryEnabled(checked)
+                }
+              />
+              <Field label="Endpoint OTLP traces">
+                <div className="flex gap-2">
+                  <Input
+                    aria-label="Endpoint OTLP traces"
+                    value={telemetryEndpointDraft}
+                    onBlur={() => void saveTelemetryEndpoint()}
+                    onChange={(event) =>
+                      setTelemetryEndpointDraft(event.target.value)
+                    }
+                  />
+                  <Button
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => void saveTelemetryEndpoint()}
+                    variant="outline"
+                  >
+                    Simpan
+                  </Button>
+                </div>
+              </Field>
+              <Field label="ID benchmark">
+                <Input
+                  aria-label="ID benchmark"
+                  disabled
+                  value={model.benchmarkTelemetry.runId || 'Dibuat saat diaktifkan'}
+                />
+              </Field>
+              <p className="text-sm text-slate-600">
+                {model.benchmarkTelemetry.statusLabel}. Hanya endpoint HTTP loopback
+                /v1/traces yang diizinkan.
+              </p>
+            </Panel>
+
             <Panel title="Diagnostik" icon={ActivityIcon}>
               <Metric label="Platform aktif" value={model.diagnostics.activePlatformLabel} />
               <Metric label="Dipindai" value={model.diagnostics.scannedCountLabel} />
@@ -354,6 +444,12 @@ function Metric({ label, value }: { label: string; value: string }) {
       <span className="font-semibold text-slate-950">{value}</span>
     </div>
   );
+}
+
+function formatSettingsError(error: unknown): string {
+  return error instanceof Error
+    ? `Gagal menyimpan: ${error.message}`
+    : 'Gagal menyimpan pengaturan telemetry';
 }
 
 export default App;

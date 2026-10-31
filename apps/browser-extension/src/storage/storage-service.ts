@@ -4,11 +4,16 @@ import {
   defaultExtensionSettings,
   type DetectionLog,
   type ExtensionSettings,
+  type ExtensionSettingsPatch,
   type ExtensionStorageSchema,
   type ManualAnalysisState,
   type SessionStats,
   type StorageKey,
 } from '../shared';
+import {
+  createBenchmarkRunId,
+  validateOtlpTraceEndpoint,
+} from '../telemetry/telemetry-settings';
 
 const MAX_LOG_SNIPPET_LENGTH = 240;
 const MAX_MANUAL_INPUT_LENGTH = 2000;
@@ -42,14 +47,30 @@ export async function getExtensionSettings(
       ...defaultExtensionSettings.platformScope,
       ...stored?.platformScope,
     },
+    benchmarkTelemetry: {
+      ...defaultExtensionSettings.benchmarkTelemetry,
+      ...stored?.benchmarkTelemetry,
+    },
   };
 }
 
 export async function updateExtensionSettings(
-  patch: Partial<ExtensionSettings>,
+  patch: ExtensionSettingsPatch,
   area: StorageArea = extensionStorageArea,
 ): Promise<ExtensionSettings> {
   const current = await getExtensionSettings(area);
+  const benchmarkTelemetry = {
+    ...current.benchmarkTelemetry,
+    ...patch.benchmarkTelemetry,
+  };
+
+  benchmarkTelemetry.otlpEndpoint = validateOtlpTraceEndpoint(
+    benchmarkTelemetry.otlpEndpoint,
+  );
+  if (benchmarkTelemetry.enabled && benchmarkTelemetry.runId === '') {
+    benchmarkTelemetry.runId = createBenchmarkRunId();
+  }
+
   const updated: ExtensionSettings = {
     ...current,
     ...patch,
@@ -57,6 +78,7 @@ export async function updateExtensionSettings(
       ...current.platformScope,
       ...patch.platformScope,
     },
+    benchmarkTelemetry,
     schemaVersion: 1,
   };
 

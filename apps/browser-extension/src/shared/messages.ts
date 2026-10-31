@@ -1,4 +1,13 @@
 import type {
+  PredictionTraceComplete,
+  PredictionTraceStart,
+} from '../telemetry/background-telemetry';
+export type {
+  PredictionTraceComplete,
+  PredictionTraceStart,
+} from '../telemetry/background-telemetry';
+
+import type {
   PredictionBatchRequest,
   PredictionBatchResponse,
   PredictionModelInfo,
@@ -15,6 +24,7 @@ import type {
 
 export const MESSAGE_TYPES = {
   scanBatch: 'judollens:scan-batch',
+  predictionTraceComplete: 'judollens:prediction-trace-complete',
   getExtensionState: 'judollens:get-extension-state',
   updateSettings: 'judollens:update-settings',
   clearDetectionLogs: 'judollens:clear-detection-logs',
@@ -81,6 +91,12 @@ export type MessageType = (typeof MESSAGE_TYPES)[keyof typeof MESSAGE_TYPES];
 export type ScanBatchMessage = {
   type: typeof MESSAGE_TYPES.scanBatch;
   payload: PredictionBatchRequest;
+  telemetry?: PredictionTraceStart;
+};
+
+export type PredictionTraceCompleteMessage = {
+  type: typeof MESSAGE_TYPES.predictionTraceComplete;
+  payload: PredictionTraceComplete;
 };
 
 export type ScanBatchResponseMessage = {
@@ -92,10 +108,13 @@ export type GetExtensionStateMessage = {
   type: typeof MESSAGE_TYPES.getExtensionState;
 };
 
+export type TelemetryExporterStatus = 'disabled' | 'ready' | 'export-failed';
+
 export type ExtensionStatePayload = {
   settings: ExtensionSettings;
   stats: SessionStats;
   recentLogs: DetectionLog[];
+  telemetryStatus?: TelemetryExporterStatus;
 };
 
 export type ExtensionStateResponseMessage = {
@@ -180,6 +199,7 @@ export type SaveManualAnalysisResponseMessage = {
 
 export type JudolLensRequestMessage =
   | ScanBatchMessage
+  | PredictionTraceCompleteMessage
   | GetExtensionStateMessage
   | UpdateSettingsMessage
   | ClearDetectionLogsMessage

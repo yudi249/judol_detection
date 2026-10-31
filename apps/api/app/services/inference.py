@@ -10,6 +10,9 @@ from typing import Literal
 import onnxruntime as ort
 import torch
 import transformers
+from opentelemetry import trace
+from opentelemetry.trace import Tracer
+
 
 from .model_manifest import ModelManifest, load_model_manifest
 from .unicode_evidence import UnicodeEvidence, analyze_unicode_evidence
@@ -51,13 +54,24 @@ class InferenceResult:
 class LoadedIndoBertInferenceService:
     """A fully loaded local artifact, with no request-time model loading."""
 
-    def __init__(self, *, tokenizer: object, model: object, manifest: ModelManifest) -> None:
+    def __init__(
+        self,
+        *,
+        tokenizer: object,
+        model: object,
+        manifest: ModelManifest,
+        tracer: Tracer | None = None,
+    ) -> None:
         self.tokenizer = tokenizer
         self.model = model
         self.manifest = manifest
+        self.tracer = tracer or trace.NoOpTracer()
+        self.runtime = "pytorch"
 
     @classmethod
-    def load(cls, artifact_dir: Path) -> "LoadedIndoBertInferenceService":
+    def load(
+        cls, artifact_dir: Path, *, tracer: Tracer | None = None
+    ) -> "LoadedIndoBertInferenceService":
         manifest = load_model_manifest(artifact_dir / "model-manifest.json")
         tokenizer = transformers.AutoTokenizer.from_pretrained(artifact_dir, local_files_only=True)
         model = transformers.AutoModelForSequenceClassification.from_pretrained(
@@ -66,7 +80,7 @@ class LoadedIndoBertInferenceService:
         if getattr(getattr(model, "config", None), "label2id", None) != manifest.label_to_id:
             raise ValueError("loaded model label2id does not match model manifest")
         model.eval()
-        return cls(tokenizer=tokenizer, model=model, manifest=manifest)
+        return cls(tokenizer=tokenizer, model=model, manifest=manifest, tracer=tracer)
 
     def predict_items(
         self, items: list[tuple[str, str]], *, threshold: float
@@ -77,29 +91,44 @@ class LoadedIndoBertInferenceService:
             return []
 
         _, texts = zip(*items, strict=True)
-        encoded = self.tokenizer(
-            list(texts),
-            truncation=True,
-            max_length=self.manifest.max_length,
-            padding=True,
-            return_tensors="pt",
-        )
-        with torch.inference_mode():
-            output = self.model(**encoded)
-            confidences = torch.softmax(output.logits, dim=1)[:, 1].tolist()
-        return _project_predictions(items, confidences, threshold)
+        with self.tracer.start_as_current_span("server.tokenize", record_exception=False) as span:
+            encoded = self.tokenizer(
+                list(texts),
+                truncation=True,
+                max_length=self.manifest.max_length,
+                padding=True,
+                return_tensors="pt",
+            )
+            _set_token_aggregates(span, encoded["attention_mask"], len(items))
+        with self.tracer.start_as_current_span("server.model_inference", record_exception=False):
+            with torch.inference_mode():
+                output = self.model(**encoded)
+                confidences = torch.softmax(output.logits, dim=1)[:, 1].tolist()
+        with self.tracer.start_as_current_span("server.postprocess", record_exception=False):
+            return _project_predictions(items, confidences, threshold)
 
 
 class OnnxIndoBertInferenceService:
     """A manifest-validated INT8 ONNX artifact loaded once for CPU inference."""
 
-    def __init__(self, *, tokenizer: object, session: object, manifest: ModelManifest) -> None:
+    def __init__(
+        self,
+        *,
+        tokenizer: object,
+        session: object,
+        manifest: ModelManifest,
+        tracer: Tracer | None = None,
+    ) -> None:
         self.tokenizer = tokenizer
         self.session = session
         self.manifest = manifest
+        self.tracer = tracer or trace.NoOpTracer()
+        self.runtime = "onnx-int8"
 
     @classmethod
-    def load(cls, artifact_dir: Path) -> "OnnxIndoBertInferenceService":
+    def load(
+        cls, artifact_dir: Path, *, tracer: Tracer | None = None
+    ) -> "OnnxIndoBertInferenceService":
         manifest = load_model_manifest(artifact_dir / "model-manifest.json")
         report_path = artifact_dir / "conversion-report.json"
         try:
@@ -119,7 +148,7 @@ class OnnxIndoBertInferenceService:
         expected_inputs = {input_.name for input_ in session.get_inputs()}
         if expected_inputs != {"input_ids", "attention_mask", "token_type_ids"}:
             raise ValueError("ONNX INT8 model inputs do not match the IndoBERT serving contract")
-        return cls(tokenizer=tokenizer, session=session, manifest=manifest)
+        return cls(tokenizer=tokenizer, session=session, manifest=manifest, tracer=tracer)
 
     def predict_items(
         self, items: list[tuple[str, str]], *, threshold: float
@@ -130,24 +159,35 @@ class OnnxIndoBertInferenceService:
             return []
 
         _, texts = zip(*items, strict=True)
-        encoded = self.tokenizer(
-            list(texts),
-            truncation=True,
-            max_length=self.manifest.max_length,
-            padding=True,
-            return_tensors="pt",
-        )
+        with self.tracer.start_as_current_span("server.tokenize", record_exception=False) as span:
+            encoded = self.tokenizer(
+                list(texts),
+                truncation=True,
+                max_length=self.manifest.max_length,
+                padding=True,
+                return_tensors="pt",
+            )
+            _set_token_aggregates(span, encoded["attention_mask"], len(items))
         expected_inputs = {input_.name for input_ in self.session.get_inputs()}
         if set(encoded) != expected_inputs:
             raise ValueError("tokenizer output does not match the ONNX INT8 model inputs")
-        outputs = self.session.run(
-            None,
-            {name: encoded[name].detach().cpu().numpy() for name in expected_inputs},
-        )
-        if len(outputs) != 1:
-            raise ValueError("ONNX INT8 model must produce exactly one logits output")
-        confidences = torch.softmax(torch.as_tensor(outputs[0]), dim=1)[:, 1].tolist()
-        return _project_predictions(items, confidences, threshold)
+        with self.tracer.start_as_current_span("server.model_inference", record_exception=False):
+            outputs = self.session.run(
+                None,
+                {name: encoded[name].detach().cpu().numpy() for name in expected_inputs},
+            )
+            if len(outputs) != 1:
+                raise ValueError("ONNX INT8 model must produce exactly one logits output")
+            confidences = torch.softmax(torch.as_tensor(outputs[0]), dim=1)[:, 1].tolist()
+        with self.tracer.start_as_current_span("server.postprocess", record_exception=False):
+            return _project_predictions(items, confidences, threshold)
+
+
+def _set_token_aggregates(span: trace.Span, attention_mask: object, batch_size: int) -> None:
+    token_counts = attention_mask.sum(dim=1)
+    span.set_attribute("judollens.batch_size", batch_size)
+    span.set_attribute("judollens.total_tokens", int(token_counts.sum().item()))
+    span.set_attribute("judollens.max_tokens", int(token_counts.max().item()))
 
 
 def _project_predictions(
@@ -189,11 +229,14 @@ def _project_predictions(
 
 
 def load_inference_service(
-    artifact_dir: Path, *, runtime: Literal["pytorch", "onnx-int8"] | str
+    artifact_dir: Path,
+    *,
+    runtime: Literal["pytorch", "onnx-int8"] | str,
+    tracer: Tracer | None = None,
 ) -> LoadedIndoBertInferenceService | OnnxIndoBertInferenceService:
     """Load exactly the configured runtime; never silently fall back."""
     if runtime == "pytorch":
-        return LoadedIndoBertInferenceService.load(artifact_dir)
+        return LoadedIndoBertInferenceService.load(artifact_dir, tracer=tracer)
     if runtime == "onnx-int8":
-        return OnnxIndoBertInferenceService.load(artifact_dir)
+        return OnnxIndoBertInferenceService.load(artifact_dir, tracer=tracer)
     raise ValueError("inference runtime must be 'pytorch' or 'onnx-int8'")

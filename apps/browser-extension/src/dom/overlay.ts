@@ -191,6 +191,7 @@ export function ensureJudolLensOverlayStyles(): void {
   z-index: 1;
 }
 [data-judollens-telegram-blur] {
+  isolation: isolate;
   position: relative;
 }
 .judollens-telegram-overlay {
@@ -200,6 +201,7 @@ export function ensureJudolLensOverlayStyles(): void {
   outline: 1px solid rgba(239, 68, 68, 0.42);
   pointer-events: none;
   position: absolute;
+  z-index: 2147483647;
   -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
 }
@@ -210,6 +212,7 @@ export function ensureJudolLensOverlayStyles(): void {
   z-index: 1;
 }
 [data-judollens-telegram-warning] {
+  isolation: isolate;
   position: relative;
 }
 .judollens-telegram-warning.judollens-label {
@@ -218,7 +221,7 @@ export function ensureJudolLensOverlayStyles(): void {
   position: absolute;
   right: 8px;
   top: 8px;
-  z-index: 1;
+  z-index: 2147483647;
 }
 
 

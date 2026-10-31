@@ -21,6 +21,12 @@ import {
 
 const processedNodes = new WeakSet<Node>();
 
+const contentTiming = {
+  now: () => performance.now(),
+  epochNow: () => Date.now(),
+  nextAnimationFrame: () => waitForContentAnimationFrame(),
+};
+
 export default defineContentScript({
   matches: [
     '*://*.youtube.com/*',
@@ -52,6 +58,7 @@ export default defineContentScript({
           sendMessage: (message) =>
             sendRuntimeMessageSafely(ctx, (runtimeMessage) => browser.runtime.sendMessage(runtimeMessage), message),
           onPredictionResults: undefined,
+          ...contentTiming,
         });
       } catch (error) {
         console.debug('JudolLens overlay scan failed safely.', error);
@@ -270,6 +277,14 @@ export default defineContentScript({
     void startScanning();
   },
 });
+
+export function waitForContentAnimationFrame(
+  requestFrame: (callback: FrameRequestCallback) => number = requestAnimationFrame,
+): Promise<void> {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  requestFrame(() => resolve());
+  return promise;
+}
 
 export function isYouTubeHomeUrl(url: string): boolean {
   try {

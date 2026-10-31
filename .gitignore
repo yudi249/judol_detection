@@ -29,6 +29,10 @@ models/serving/*
 models/judol_baseline_outputs*/
 models/judol_baseline_outputs*.zip
 
+# Local Jaeger binary and persistent Badger traces
+observability/jaeger/data/
+observability/jaeger/jaeger.exe
+
 # Raw browser response captures used only for parser research.
 configs/TweetDetail.json
 configs/UserOriginalsTimeline.json

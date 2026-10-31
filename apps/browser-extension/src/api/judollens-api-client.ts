@@ -54,16 +54,27 @@ export type JudolLensApiClient = {
   predictOne(request: PredictionRequest): Promise<PredictionResponse>;
 };
 
+export type JudolLensApiClientOptions = {
+  injectHeaders?: (headers: Headers) => void;
+};
+
 export function createJudolLensApiClient(
   baseUrl: string,
   fetch = globalThis.fetch,
+  options: JudolLensApiClientOptions = {},
 ): JudolLensApiClient {
   const client = createClient<paths>({ baseUrl, fetch });
+  const requestHeaders = (): Headers => {
+    const headers = new Headers();
+    options.injectHeaders?.(headers);
+    return headers;
+  };
 
   return {
     async predictBatch(request) {
       const { data, error, response } = await client.POST('/predict/batch', {
         body: toWireBatchRequest(request),
+        headers: requestHeaders(),
       });
       if (!response.ok || !data) {
         throw toApiError(error, response.status);
@@ -73,6 +84,7 @@ export function createJudolLensApiClient(
     async predictOne(request) {
       const { data, error, response } = await client.POST('/predict', {
         body: toWireRequest(request),
+        headers: requestHeaders(),
       });
       if (!response.ok || !data) {
         throw toApiError(error, response.status);

@@ -384,6 +384,52 @@ describe('JudolLens page overlay', () => {
     }
     expect(wrapper.querySelector('.judollens-content')).toBeNull();
   });
+  it('creates an isolated foreground layer for Telegram blur', () => {
+    document.body.innerHTML = `
+      <article class="bubble">
+        <div class="bubble-content-wrapper">
+          <div class="bubble-content" style="position: relative; z-index: 10">bonus slot gacor malam ini</div>
+        </div>
+      </article>
+    `;
+    const wrapper = document.querySelector<HTMLElement>('.bubble-content-wrapper');
+    const textNode = document.querySelector('.bubble-content')?.firstChild;
+    if (!wrapper || !(textNode instanceof Text)) {
+      throw new Error('Missing Telegram stacking fixture');
+    }
+
+    applyPredictionOverlays(
+      [createResult()],
+      [{ item: { id: 'candidate-1', text: textNode.data, context: { kind: 'message', visible: true } }, textNode }],
+    );
+
+    const overlay = wrapper.querySelector<HTMLElement>(':scope > .judollens-telegram-overlay');
+    expect(getComputedStyle(wrapper).isolation).toBe('isolate');
+    expect(overlay && Number(getComputedStyle(overlay).zIndex)).toBeGreaterThan(10);
+  });
+  it('creates an isolated foreground layer for a Telegram warning', () => {
+    document.body.innerHTML = `
+      <article class="bubble">
+        <div class="bubble-content-wrapper">
+          <div class="bubble-content" style="position: relative; z-index: 10">bonus slot gacor malam ini</div>
+        </div>
+      </article>
+    `;
+    const wrapper = document.querySelector<HTMLElement>('.bubble-content-wrapper');
+    const textNode = document.querySelector('.bubble-content')?.firstChild;
+    if (!wrapper || !(textNode instanceof Text)) {
+      throw new Error('Missing Telegram warning stacking fixture');
+    }
+
+    applyPredictionOverlays(
+      [createResult({ action: 'warn' })],
+      [{ item: { id: 'candidate-1', text: textNode.data, context: { kind: 'message', visible: true } }, textNode }],
+    );
+
+    const warning = wrapper.querySelector<HTMLElement>(':scope > .judollens-telegram-warning');
+    expect(getComputedStyle(wrapper).isolation).toBe('isolate');
+    expect(warning && Number(getComputedStyle(warning).zIndex)).toBeGreaterThan(10);
+  });
   it('applies one final cached blur to an X tweet', () => {
     document.body.innerHTML = '<article data-testid="tweet"><p>bonus slot gacor</p></article>';
     const tweet = document.querySelector<HTMLElement>('[data-testid="tweet"]');

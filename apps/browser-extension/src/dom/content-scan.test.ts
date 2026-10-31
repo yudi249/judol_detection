@@ -7,6 +7,7 @@ import {
   type ExtensionStateResponseMessage,
   type GetExtensionStateMessage,
   type ScanBatchMessage,
+  type PredictionTraceCompleteMessage,
   type ScanBatchResponseMessage,
 } from '../shared';
 import {
@@ -90,6 +91,97 @@ describe('content scan integration flow', () => {
     );
   });
 
+  it('reports privacy-safe scan, overlay, and next-paint timing when telemetry is enabled', async () => {
+    document.body.innerHTML =
+      '<main><p>bonus slot gacor malam ini</p><p>jadwal praktikum aman</p></main>';
+    const sentMessages: Array<ScanBatchMessage | GetExtensionStateMessage | unknown> = [];
+    const times = [100, 104, 200, 203, 210, 215];
+    const nextAnimationFrame = vi.fn(async () => undefined);
+
+    const applied = await runJudolLensScanOnce({
+      root: document.body,
+      url: 'http://localhost:5173/private-page',
+      pageTitle: 'Private title',
+      now: () => times.shift() ?? 0,
+      epochNow: () => 1_795_000_000_000,
+      nextAnimationFrame,
+      sendMessage: async (message) => {
+        sentMessages.push(message);
+        if (message.type === MESSAGE_TYPES.getExtensionState) {
+          return createStateResponse({
+            benchmarkTelemetry: {
+              ...defaultExtensionSettings.benchmarkTelemetry,
+              enabled: true,
+              runId: 'benchmark-test',
+            },
+          });
+        }
+        if (message.type === MESSAGE_TYPES.predictionTraceComplete) {
+          return undefined;
+        }
+        return createResponse(message.payload.requestId, []);
+      },
+    });
+
+    expect(applied).toBe(0);
+    const scanMessage = sentMessages.find(
+      (message): message is ScanBatchMessage =>
+        typeof message === 'object' &&
+        message !== null &&
+        'type' in message &&
+        message.type === MESSAGE_TYPES.scanBatch,
+    );
+    expect(scanMessage?.telemetry).toEqual({
+      requestId: scanMessage?.payload.requestId,
+      startedAtEpochMs: 1_795_000_000_000,
+      scanDurationMs: 4,
+      candidateCount: 2,
+      totalCharacters: 47,
+      maxCharacters: 26,
+    });
+    expect(nextAnimationFrame).toHaveBeenCalledTimes(1);
+    expect(sentMessages.at(-1)).toEqual({
+      type: MESSAGE_TYPES.predictionTraceComplete,
+      payload: {
+        requestId: scanMessage?.payload.requestId,
+        overlayDurationMs: 3,
+        nextPaintDurationMs: 5,
+        completion: 'complete',
+      },
+    });
+    expect(findForbiddenTelemetryKey(scanMessage?.telemetry)).toBeUndefined();
+  });
+
+  it('does not delay prediction results for completion delivery', async () => {
+    document.body.innerHTML = '<main><p>bonus slot gacor malam ini</p></main>';
+    const completionDelivery = Promise.withResolvers<unknown>();
+
+    const scan = runJudolLensScanOnce({
+      root: document.body,
+      url: 'http://localhost:5173/fixture',
+      now: () => 1,
+      epochNow: () => 2,
+      nextAnimationFrame: async () => undefined,
+      sendMessage: (message) => {
+        if (message.type === MESSAGE_TYPES.getExtensionState) {
+          return Promise.resolve(createStateResponse({
+            benchmarkTelemetry: {
+              ...defaultExtensionSettings.benchmarkTelemetry,
+              enabled: true,
+            },
+          }));
+        }
+        if (message.type === MESSAGE_TYPES.predictionTraceComplete) {
+          return completionDelivery.promise;
+        }
+        return Promise.resolve(createResponse(message.payload.requestId, []));
+      },
+    });
+
+    await expect(scan).resolves.toBe(0);
+    completionDelivery.resolve(undefined);
+  });
+
   it('reports only results paired to candidate refs before applying overlays', async () => {
     document.body.innerHTML = '<main><p>bonus slot gacor malam ini</p></main>';
     const onPredictionResults = vi.fn();
@@ -137,9 +229,14 @@ describe('content scan integration flow', () => {
     document.body.innerHTML = '<main><p>bonus slot gacor malam ini</p></main>';
     const processedNodes = new WeakSet<Node>();
     const sentTexts: string[] = [];
-    const sendMessage = async (message: ScanBatchMessage | GetExtensionStateMessage) => {
+    const sendMessage = async (
+      message: ScanBatchMessage | GetExtensionStateMessage | PredictionTraceCompleteMessage,
+    ) => {
       if (message.type === MESSAGE_TYPES.getExtensionState) {
         return createStateResponse();
+      }
+      if (message.type === MESSAGE_TYPES.predictionTraceComplete) {
+        return undefined;
       }
 
       sentTexts.push(...message.payload.items.map((item) => item.text));
@@ -210,6 +307,9 @@ describe('content scan integration flow', () => {
         if (message.type === MESSAGE_TYPES.getExtensionState) {
           return createStateResponse();
         }
+        if (message.type === MESSAGE_TYPES.predictionTraceComplete) {
+          return undefined;
+        }
 
         sentTexts.push(...message.payload.items.map((item) => item.text));
         return createResponse(message.payload.requestId, [
@@ -253,6 +353,9 @@ describe('content scan integration flow', () => {
         if (message.type === MESSAGE_TYPES.getExtensionState) {
           return createStateResponse();
         }
+        if (message.type === MESSAGE_TYPES.predictionTraceComplete) {
+          return undefined;
+        }
         sentBatches.push(message);
         return createResponse(message.payload.requestId, []);
       },
@@ -290,6 +393,9 @@ describe('content scan integration flow', () => {
       sendMessage: async (message) => {
         if (message.type === MESSAGE_TYPES.getExtensionState) {
           return createStateResponse();
+        }
+        if (message.type === MESSAGE_TYPES.predictionTraceComplete) {
+          return undefined;
         }
         sentBatches.push(message);
         return createResponse(message.payload.requestId, []);
@@ -381,6 +487,9 @@ describe('content scan integration flow', () => {
             highlightUnicode: false,
           });
         }
+        if (message.type === MESSAGE_TYPES.predictionTraceComplete) {
+          return undefined;
+        }
 
         sentThresholds.push(message.payload.client.threshold);
         return createResponse(message.payload.requestId, [
@@ -452,6 +561,23 @@ describe('content scan integration flow', () => {
     expect(document.querySelector('.judollens-detected')).toBeNull();
   });
 });
+
+function findForbiddenTelemetryKey(value: unknown): string | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+
+  for (const [key, child] of Object.entries(value)) {
+    if (['text', 'url', 'pageTitle', 'selectorHint'].includes(key)) {
+      return key;
+    }
+    const nestedKey = findForbiddenTelemetryKey(child);
+    if (nestedKey) {
+      return nestedKey;
+    }
+  }
+  return undefined;
+}
 
 function createResponse(
   requestId: string,

@@ -3,6 +3,7 @@ import {
   type ExtensionSettings,
   type PlatformScope,
   type SessionStats,
+  type TelemetryExporterStatus,
 } from '../../src/shared';
 
 const INDONESIAN_NUMBER_FORMATTER = new Intl.NumberFormat('id-ID');
@@ -29,6 +30,12 @@ export type OptionsViewModel = {
     maxLogs: number;
     storeBoundedEvidence: boolean;
     storeSourceUrl: boolean;
+  };
+  benchmarkTelemetry: {
+    enabled: boolean;
+    otlpEndpoint: string;
+    runId: string;
+    statusLabel: string;
   };
   diagnostics: {
     activePlatformLabel: string;
@@ -59,6 +66,7 @@ const SESSION_PLATFORM_LABELS: Record<SessionStats['activePlatform'], string> = 
 export function buildOptionsViewModel(
   settings: ExtensionSettings,
   stats: SessionStats,
+  telemetryStatus: TelemetryExporterStatus = 'disabled',
 ): OptionsViewModel {
   return {
     detectionMode: {
@@ -82,6 +90,12 @@ export function buildOptionsViewModel(
       maxLogs: settings.maxLogs,
       storeBoundedEvidence: settings.storeBoundedEvidence,
       storeSourceUrl: settings.storeSourceUrl,
+    },
+    benchmarkTelemetry: {
+      enabled: settings.benchmarkTelemetry.enabled,
+      otlpEndpoint: settings.benchmarkTelemetry.otlpEndpoint,
+      runId: settings.benchmarkTelemetry.runId,
+      statusLabel: formatTelemetryStatus(telemetryStatus),
     },
     diagnostics: {
       activePlatformLabel: SESSION_PLATFORM_LABELS[stats.activePlatform],
@@ -113,6 +127,9 @@ export function buildResetSettingsPatch(): ExtensionSettings {
     platformScope: {
       ...defaultExtensionSettings.platformScope,
     },
+    benchmarkTelemetry: {
+      ...defaultExtensionSettings.benchmarkTelemetry,
+    },
   };
 }
 
@@ -126,4 +143,15 @@ function formatCount(value: number): string {
 
 function formatPredictionMode(value: ExtensionSettings['predictionMode']): string {
   return value === 'api' ? 'Mode API' : 'Mode tiruan';
+}
+
+function formatTelemetryStatus(status: TelemetryExporterStatus): string {
+  switch (status) {
+    case 'ready':
+      return 'Telemetry benchmark siap';
+    case 'export-failed':
+      return 'Ekspor telemetry benchmark gagal';
+    case 'disabled':
+      return 'Telemetry benchmark nonaktif';
+  }
 }

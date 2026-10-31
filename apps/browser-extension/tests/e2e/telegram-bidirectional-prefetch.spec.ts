@@ -97,6 +97,7 @@ test.describe('JudolLens Telegram bidirectional prefetch', () => {
       await expect(below.locator('.bubble-content-wrapper[data-judollens-telegram-blur]')).toHaveCount(1);
       await expect(page.locator('#control-bubble .judollens-detected')).toHaveCount(0);
 
+
       await expect.poll(async () => reader.evaluate((element, targetId) => {
         const readerRect = element.getBoundingClientRect();
         const targetRect = document.getElementById(targetId)!.getBoundingClientRect();

@@ -3,6 +3,10 @@ from pathlib import Path
 
 import pytest
 import torch
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
 
 from apps.api.app.services.inference import LoadedIndoBertInferenceService
 from apps.api.app.services.model_manifest import ModelManifest
@@ -15,7 +19,11 @@ class RecordingTokenizer:
     def __call__(self, texts: list[str], **kwargs: object) -> dict[str, torch.Tensor]:
         self.received.extend(texts)
         assert kwargs == {"truncation": True, "max_length": 128, "padding": True, "return_tensors": "pt"}
-        return {"input_ids": torch.tensor([[1, 2]] * len(texts))}
+        return {
+            "input_ids": torch.tensor([[1, 2]] * len(texts)),
+            "attention_mask": torch.tensor([[1, 1]] * len(texts)),
+        }
+
 
 
 class FixedModel:
@@ -157,24 +165,78 @@ def test_onnx_service_preserves_pytorch_results_for_same_logits() -> None:
     assert tokenizer.received == ["bοnus slοt", "rapat penelitian"]
     assert set(session.received[0]) == {"input_ids", "attention_mask", "token_type_ids"}
 
+@pytest.mark.parametrize("runtime", ["pytorch", "onnx-int8"])
+def test_inference_runtimes_emit_private_stage_spans_with_attention_mask_aggregates(
+    runtime: str,
+) -> None:
+    from apps.api.app.services.inference import OnnxIndoBertInferenceService
+
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    tracer = provider.get_tracer("test.inference")
+    sensitive_text = "PRIVATE candidate https://secret.example/path"
+    items = [("one", sensitive_text), ("two", "other private candidate")]
+    logits = [[0.0, 3.0], [3.0, 0.0]]
+    if runtime == "pytorch":
+        service = LoadedIndoBertInferenceService(
+            tokenizer=OnnxRecordingTokenizer(),
+            model=FixedModel(logits),
+            manifest=manifest(),
+            tracer=tracer,
+        )
+    else:
+        service = OnnxIndoBertInferenceService(
+            tokenizer=OnnxRecordingTokenizer(),
+            session=FixedOnnxSession(logits),
+            manifest=manifest(),
+            tracer=tracer,
+        )
+
+    service.predict_items(items, threshold=0.75)
+
+    spans = exporter.get_finished_spans()
+    assert [span.name for span in spans] == [
+        "server.tokenize",
+        "server.model_inference",
+        "server.postprocess",
+    ]
+    tokenize_attributes = dict(spans[0].attributes or {})
+    assert tokenize_attributes == {
+        "judollens.batch_size": 2,
+        "judollens.total_tokens": 4,
+        "judollens.max_tokens": 2,
+    }
+    serialized = repr(
+        [
+            (span.name, dict(span.attributes or {}), list(span.events))
+            for span in spans
+        ]
+    )
+    assert sensitive_text not in serialized
+    assert "secret.example" not in serialized
+
 
 def test_runtime_dispatcher_selects_only_explicit_onnx_int8(monkeypatch, tmp_path: Path) -> None:
     from apps.api.app.services.inference import load_inference_service
 
-    selected: list[tuple[str, Path]] = []
+    selected: list[tuple[str, Path, object]] = []
+    tracer = object()
     monkeypatch.setattr(
         LoadedIndoBertInferenceService,
         "load",
-        classmethod(lambda _, path: selected.append(("pytorch", path)) or object()),
+        classmethod(lambda _, path, *, tracer=None: selected.append(("pytorch", path, tracer)) or object()),
     )
     monkeypatch.setattr(
         "apps.api.app.services.inference.OnnxIndoBertInferenceService.load",
-        classmethod(lambda _, path: selected.append(("onnx-int8", path)) or object()),
+        classmethod(
+            lambda _, path, *, tracer=None: selected.append(("onnx-int8", path, tracer)) or object()
+        ),
     )
 
-    load_inference_service(tmp_path, runtime="onnx-int8")
+    load_inference_service(tmp_path, runtime="onnx-int8", tracer=tracer)
 
-    assert selected == [("onnx-int8", tmp_path)]
+    assert selected == [("onnx-int8", tmp_path, tracer)]
 
 
 def test_runtime_dispatcher_rejects_unknown_runtime(tmp_path: Path) -> None:

@@ -38,6 +38,8 @@ flowchart LR
     background --> content
 ```
 
+When benchmark telemetry is enabled, the content script adds an aggregate-only timing envelope to the existing scan message and reports overlay/next-paint completion separately. The background owns the sole OpenTelemetry provider, one bounded root span per request, gateway queue/chunk/retry spans, storage spans, W3C propagation, and exporter lifecycle. Only the JudolLens FastAPI requests receive `traceparent`, `tracestate`, and `baggage`; there is no browser or fetch auto-instrumentation.
+
 React owns extension UI. Web APIs handle third-party page DOM.
 
 ## Components
@@ -98,6 +100,10 @@ Responsibilities:
 The predictor boundary is swappable. UI and content scripts do not know whether results came from mock logic or FastAPI. In `api` mode, the background maps camelCase extension state to the canonical snake_case OpenAPI wire contract, chunks batches, applies the bounded retry policy, and preserves terminal API failures as errors rather than treating them as `non_judol`. The FastAPI server owns threshold-based labels; mock remains the offline deterministic baseline.
 
 The API transport and its automated contract tests are complete. A manifest-valid sampled baseline now proves the real-server API-mode path, including DOM overlay, non-mock model metadata, latency, terminal 503 handling, and screenshot evidence. This does not make the sampled artifact final: final-model claims remain blocked on human-annotated `dataset_final.xlsx`; React/content-script changes are not required for that training cutover.
+
+The FastAPI server continues the incoming W3C context with an app-scoped provider. Its explicit stages are `server.tokenize`, `server.model_inference`, `server.postprocess`, and `server.response_projection`; PyTorch and ONNX use the same names and derive token aggregates from the existing attention mask. Client stages are `judollens.prediction`, `client.background_prediction`, `client.gateway_queue`, `client.api_chunk`, `client.http_attempt`, and `client.storage_update`. Export is batched and fail-open: collector failure can change only the ephemeral exporter diagnostic, never prediction results or protection state.
+
+Benchmark traces are grouped with an opaque `judollens.run_id`, runtime/model metadata, and aggregate batch shape. They exclude content strings, browsing metadata, DOM identifiers, bodies, credentials, and exception messages. Jaeger is the local waterfall/debugging surface; report-ready percentile comparisons require equivalent run groups and a separate trace export/analysis workflow rather than visual estimates from Jaeger.
 
 ### React UI
 

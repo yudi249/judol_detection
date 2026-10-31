@@ -56,6 +56,11 @@ export type ExtensionSettings = {
   maxLogs: number
   storeBoundedEvidence: boolean
   storeSourceUrl: boolean
+  benchmarkTelemetry: {
+    enabled: boolean
+    otlpEndpoint: string
+    runId: string
+  }
 }
 ```
 
@@ -81,8 +86,17 @@ export const defaultExtensionSettings: ExtensionSettings = {
   maxLogs: 200,
   storeBoundedEvidence: true,
   storeSourceUrl: false,
+  benchmarkTelemetry: {
+    enabled: false,
+    otlpEndpoint: "http://127.0.0.1:4318/v1/traces",
+    runId: "",
+  },
 }
 ```
+
+`benchmarkTelemetry` is an opt-in benchmark setting, not ordinary product analytics. The endpoint must be an HTTP loopback URL with the exact `/v1/traces` path and no credentials, query, or fragment. Enabling telemetry with an empty `runId` generates an opaque local run identifier. Nested setting updates are deep-merged so older stored settings retain these defaults without changing `schemaVersion`.
+
+Exporter state (`disabled`, `ready`, or `export-failed`) is returned ephemerally by the background service during state refresh. It is never written to a storage key, and exporter failure does not change `stats:session.protectionStatus`.
 
 ## stats:session
 
@@ -243,6 +257,8 @@ Manual analysis page
 - Do not store full DOM, full browsing history, access tokens, or account identifiers.
 - Provide clear logs behavior.
 - Keep manual selected text temporary unless the user saves it.
+- Never store telemetry spans or exporter status in extension storage; the background exports only aggregate counts, durations, opaque request/run IDs, bounded outcome codes, and model/runtime metadata.
+- Telemetry must never contain candidate text, snippets, URLs, page titles, selectors, DOM, request or response bodies, platform payloads, credentials, or arbitrary exception messages.
 
 ## Evaluation Support
 

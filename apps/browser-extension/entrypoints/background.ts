@@ -10,15 +10,56 @@ import { XTimelineMonitor } from '../src/background/x-timeline-monitor';
 import { YouTubeBrowseMonitor } from '../src/background/youtube-browse-monitor';
 import { browser } from 'wxt/browser';
 import type { Browser } from 'wxt/browser';
-import type { JudolLensRequestMessage } from '../src/shared';
+import {
+  MESSAGE_TYPES,
+  type ExtensionStateResponseMessage,
+  type JudolLensRequestMessage,
+  type JudolLensResponseMessage,
+} from '../src/shared';
+import { createBackgroundTelemetry } from '../src/telemetry';
 
 const apiPredictionGateways = new Map<string, ApiPredictionGateway>();
+const backgroundTelemetry = createBackgroundTelemetry();
+const EXPORT_WARNING_INTERVAL_MS = 60_000;
+const EXPORT_WARNING = 'JudolLens telemetry export failed.';
+let lastExportWarningAt = Number.NEGATIVE_INFINITY;
+
+function warnForExportFailure(now = Date.now()): void {
+  if (
+    backgroundTelemetry.status() !== 'export-failed' ||
+    now - lastExportWarningAt < EXPORT_WARNING_INTERVAL_MS
+  ) {
+    return;
+  }
+  lastExportWarningAt = now;
+  console.warn(EXPORT_WARNING);
+}
+
+async function attachTelemetryStatus(
+  response: JudolLensResponseMessage | undefined,
+): Promise<JudolLensResponseMessage | undefined> {
+  if (response?.type !== MESSAGE_TYPES.getExtensionState) {
+    warnForExportFailure();
+    return response;
+  }
+
+  await backgroundTelemetry.configure(response.payload.settings.benchmarkTelemetry);
+  warnForExportFailure();
+  return {
+    ...response,
+    payload: {
+      ...response.payload,
+      telemetryStatus: backgroundTelemetry.status(),
+    },
+  };
+}
 
 const predictBatchWithApi: PredictBatch = async (request) => {
-  const { apiEndpoint } = await getExtensionSettings();
+  const { apiEndpoint, benchmarkTelemetry } = await getExtensionSettings();
+  await backgroundTelemetry.configure(benchmarkTelemetry);
   let gateway = apiPredictionGateways.get(apiEndpoint);
   if (!gateway) {
-    gateway = createApiPredictionGateway(apiEndpoint);
+    gateway = createApiPredictionGateway(apiEndpoint, { telemetry: backgroundTelemetry });
     apiPredictionGateways.set(apiEndpoint, gateway);
   }
   return gateway.predictBatch(request);
@@ -80,7 +121,7 @@ export default defineBackground(() => {
             items,
           },
         },
-        { apiPredictBatch: predictBatchWithApi },
+        { apiPredictBatch: predictBatchWithApi, telemetry: backgroundTelemetry },
       );
       if (response?.type === 'judollens:x-timeline-predictions') {
         await browser.tabs.sendMessage(tabId, response);
@@ -100,7 +141,7 @@ export default defineBackground(() => {
             items,
           },
         },
-        { apiPredictBatch: predictBatchWithApi },
+        { apiPredictBatch: predictBatchWithApi, telemetry: backgroundTelemetry },
       );
       if (response?.type === 'judollens:youtube-browse-predictions') {
         await browser.tabs.sendMessage(tabId, response);
@@ -132,7 +173,26 @@ export default defineBackground(() => {
         return true;
       }
 
-      void handleJudolLensMessage(message, { apiPredictBatch: predictBatchWithApi })
+      if (message.type === 'judollens:prediction-trace-complete') {
+        try {
+          backgroundTelemetry.completePrediction(message.payload);
+        } catch {
+          // Telemetry must remain fail-open.
+        }
+        sendResponse(undefined);
+        return false;
+      }
+
+      void getExtensionSettings()
+        .then(({ benchmarkTelemetry }) => backgroundTelemetry.configure(benchmarkTelemetry))
+        .catch(() => undefined)
+        .then(() =>
+          handleJudolLensMessage(message, {
+            apiPredictBatch: predictBatchWithApi,
+            telemetry: backgroundTelemetry,
+          }),
+        )
+        .then(attachTelemetryStatus)
         .then(async (response) => {
           if (
             (response?.type === 'judollens:x-timeline-predictions' ||

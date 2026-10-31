@@ -3204,3 +3204,88 @@
   - The loaded-extension Telegram fixture remains unverified after this correction. Earlier E2E evidence is historical only: subsequent runs did not receive any Telegram overlay within the assertion window, so the extension injection/background-message boundary must be traced before using it as final proof. Per direction, no further E2E run was started.
 - Next best step:
   - Diagnose the loaded-extension Telegram fixture's content-script injection and background response path, then rerun the focused Playwright regression before declaring EXT-017 fully reverified.
+
+### Session 108
+
+- Date: 2026-09-18
+- Goal: restore visible Telegram blur overlays when Telegram's stacked bubble content covers the injected overlay.
+- Completed:
+  - Added `z-index: 2` only to `.judollens-telegram-overlay`; it remains an absolute, pointer-transparent sibling on the existing `.bubble-content-wrapper` target, so Telegram links and controls retain their normal interaction behavior.
+  - Added a focused regression asserting the injected Telegram blur CSS places the overlay above stacked Telegram content layers.
+- Verification:
+  - RED: `pnpm exec vitest run src/dom/overlay.test.ts` failed because the Telegram overlay stylesheet had no explicit stacking order.
+  - GREEN: the same suite passed **22 tests** after the CSS correction; `pnpm compile` and `pnpm build` passed.
+  - `git diff --check -- apps/browser-extension/src/dom/overlay.ts apps/browser-extension/src/dom/overlay.test.ts` passed.
+- Known risk:
+  - The focused loaded-extension Telegram fixture still times out before it receives any overlay. Its Playwright trace shows both expected `data-judollens-telegram-blur` attributes remain absent, so that is an existing injection/background-message boundary failure—not evidence against the new CSS layer. This correction is not claimed as a fresh end-to-end Telegram validation.
+- Next best step:
+  - Trace why the loaded-extension fixture injects no content result, rerun that focused Playwright scenario, then manually validate the rebuilt unpacked extension against the real Telegram message surface.
+
+### Session 109
+
+- Date: 2026-09-18
+- Goal: render the injected Telegram blur surface above Telegram's real stacked bubble content.
+- Completed:
+  - Replaced the insufficient local `z-index: 2` with an isolated stacking context on the existing `.bubble-content-wrapper` target and `z-index: 2147483647` on its pointer-transparent `.judollens-telegram-overlay` child.
+  - The message DOM, link/media interactions, target selection, and prediction path remain unchanged; only paint order changed.
+  - Added a regression whose simulated `.bubble-content` has `position: relative; z-index: 10`; it proves the overlay owns an isolated foreground layer above message content.
+- Verification:
+  - RED: `pnpm exec vitest run src/dom/overlay.test.ts` failed because the Telegram wrapper had no isolated stacking context.
+  - GREEN: `pnpm exec vitest run src/dom/overlay.test.ts` passed 22 tests; `pnpm compile` and `pnpm build` passed.
+  - `git diff --check -- apps/browser-extension/src/dom/overlay.ts apps/browser-extension/src/dom/overlay.test.ts` passed; only Git CRLF normalization warnings were emitted.
+- Known risk:
+  - No logged-in Telegram Web session is available here, so the real page must be reloaded and visually checked after replacing the unpacked build. The earlier fixture timeout is a separate content-injection/background-message issue and was not used as proof for this CSS-only correction.
+- Next best step:
+  - Reload the unpacked extension in Chrome, revisit the detected Telegram message, and confirm the red blur surface plus `Terdeteksi JudolLens` badge visibly cover its media and text while its links remain clickable.
+
+### Session 110
+
+- Date: 2026-09-18
+- Goal: render the injected Telegram warning badge above Telegram's stacked bubble content.
+- Completed:
+  - Added the same local stacking isolation to a warning-targeted `.bubble-content-wrapper` and raised `.judollens-telegram-warning.judollens-label` to `z-index: 2147483647`.
+  - Preserved the warning's existing top-right placement and pointer-transparent interaction behavior.
+  - Added a regression proving a warning badge remains in the foreground when sibling Telegram content establishes `z-index: 10`.
+- Verification:
+  - RED: `pnpm exec vitest run src/dom/overlay.test.ts` failed because the warning target lacked `isolation: isolate`.
+  - GREEN: `pnpm exec vitest run src/dom/overlay.test.ts` passed 23 tests; `pnpm compile` and `pnpm build` passed.
+  - `git diff --check -- apps/browser-extension/src/dom/overlay.ts apps/browser-extension/src/dom/overlay.test.ts` passed; only Git CRLF normalization warnings were emitted.
+- Known risk:
+  - Reload the rebuilt unpacked extension before manual Telegram validation. The focused loaded-extension fixture remains a separate injection/background-message issue and does not verify this paint-order correction.
+- Next best step:
+  - Reload the unpacked extension in Chrome and verify both Telegram warning and blur remain visible above real message/media content while links remain clickable.
+
+### Session 111
+
+- Date: 2026-09-23
+- Goal: implement the approved privacy-safe OpenTelemetry/Jaeger benchmark path across the browser extension and FastAPI server.
+- Completed:
+  - Added opt-in extension telemetry settings, strict loopback OTLP endpoint validation, opaque benchmark run IDs, an ephemeral exporter diagnostic, and Options controls. No telemetry status or trace data is persisted in extension storage.
+  - Added the background-owned OpenTelemetry provider with 128 bounded roots, timeout/invalidation/reconfiguration cleanup, batch export, W3C trace-context plus run-ID baggage, fail-open exporter handling, and one generic warning per minute.
+  - Instrumented content scan/overlay/next-paint, background prediction/storage, gateway queue/chunk/retry/HTTP attempts, and explicit JudolLens API header injection. Aggregate-only envelopes structurally exclude content and browsing fields.
+  - Added app-scoped FastAPI telemetry lifecycle and matching PyTorch/ONNX spans for tokenization, inference, postprocessing, and response projection. CORS preflight now allows `traceparent`, `tracestate`, and `baggage` for configured exact origins.
+  - Client tracing integration passed **73 tests in 6 files**; exporter diagnostics passed **44 tests in 3 files**; the full extension suite passed **225 tests in 26 files**. `pnpm compile`, `pnpm build`, and `pnpm check:api` passed.
+  - Server telemetry/inference/contract suite passed **40 tests**; the full Python suite passed **233 tests** with six upstream deprecation/tracing warnings. Python compileall and repository `init.ps1` passed.
+  - Jaeger YAML parsed with repository PyYAML; health `13133`, query `16686`, OTLP/gRPC `4317`, and OTLP/HTTP `4318` all bind to `127.0.0.1`; Badger is non-ephemeral with `720h` retention.
+  - Real ONNX API telemetry smoke: the API loaded `indobert-sampled-baseline-onnx-int8-v0.1.0`, accepted a known W3C trace context and `judollens.run_id=benchmark-smoke`, and returned HTTP 200 for `benchmark-smoke-request`. With Jaeger absent, OTLP export failed to `127.0.0.1:4318` while prediction remained successful, proving server fail-open behavior.
+  - Final `graphify update .` refreshed the graph to **2,349 nodes, 4,428 edges, and 160 communities**.
+- Blocker and remaining verification:
+  - `observability/jaeger/jaeger.exe` is not installed and `where.exe jaeger.exe` found no system binary. Therefore no real Jaeger version, trace ID, cross-process topology, Badger restart persistence, loaded-extension telemetry flow, opt-out absence check, or Jaeger privacy query is claimed.
+  - OBS-001 remains `in_progress`; do not mark it passing until the native binary is installed and the full Task 11 scenario passes.
+- Next best step:
+  - Download and checksum an official Jaeger v2 Windows AMD64 release into `observability/jaeger/jaeger.exe`, start it with `jaeger-v2.yaml`, then run the real loaded-extension ONNX trace/persistence/opt-out/privacy smoke described in `docs/observability/jaeger-local.md` and the approved implementation plan.
+
+### Session 112
+
+- Date: 2026-10-31
+- Goal: inspect and commit the existing working-tree changes at the user's request.
+- Verification:
+  - Repository `init.ps1` passed dependency sync and the entrypoint smoke check.
+  - `pnpm test:run` passed 225 tests in 26 files; `pnpm compile` and `pnpm check:api` passed.
+  - The initial full Python run exceeded the shell's 120-second limit. The rerun with a 600-second limit completed with 232 passed and one ONNX Uvicorn startup timeout at its existing 60-second readiness deadline.
+  - Reran `uv run --no-cache python -m pytest --basetemp=.pytest-tmp apps/api/tests/test_api_process.py::test_uvicorn_serves_onnx_int8_artifact_without_pytorch_fallback -q`: 1 passed in 54.49 seconds. The readiness deadline was not changed.
+  - `git diff --check` passed. Inspected the tracked diff and new-file list before staging; local Jaeger binary and Badger traces remain ignored.
+- Remaining verification:
+  - OBS-001 remains in progress with the Session 111 native-Jaeger end-to-end blocker. Existing Telegram live/browser verification limitations remain recorded above; no new browser screenshot or E2E acceptance is claimed in this commit session.
+- Next best step:
+  - Complete the native Jaeger distributed-trace acceptance scenario documented in Session 111.
